@@ -1,5 +1,7 @@
-from typing import Optional
+from typing import Optional, TypeVar, Generic
 from pydantic import BaseModel, Field
+
+T = TypeVar('T')
 
 
 class DrugCombData(BaseModel):
@@ -16,7 +18,18 @@ class DrugCombData(BaseModel):
     zip: Optional[float] = Field(None, alias="ZIP")
 
 
-class DrugCombAPIResponse(BaseModel):
+class DrugData(BaseModel):
+    c_ids: str = Field(..., alias="cIds")
+    drug_name: str = Field(..., alias="drugName")
+    drug_name_official: str = Field(..., alias="drugNameOfficial")
+
+    img: Optional[str] = None
+    origin_img_url: Optional[str] = Field(None, alias="originImgUrl")
+    molecular_weight: Optional[str] = Field(None, alias="molecularWeight")
+    smiles_string: Optional[str] = Field(None, alias="smilesString")
+
+
+class DrugCombDBAPIResponse(BaseModel, Generic[T]):
     code: int
     msg: str
-    data: Optional[DrugCombData] = None
+    data: Optional[T] = None

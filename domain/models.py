@@ -31,11 +31,14 @@ class ExperimentSource:
 
 
 # Drug-related entities
+UNKNOWN_SOURCE_ID = -1
+
+
 @dataclass
 class Drug:
     drug_id: str
-    source_id: int
     drug_name: str
+    source_id: int = UNKNOWN_SOURCE_ID
     molecular_type: str | None = None
     chemical_structure: str | None = None
     inchi_key: str | None = None
