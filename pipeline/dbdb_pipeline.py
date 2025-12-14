@@ -1,0 +1,1 @@
+from pipeline.base_pipeline import IntegrationPipeline
