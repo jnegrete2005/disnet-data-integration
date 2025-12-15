@@ -9,8 +9,6 @@ class DisnetManager:
         load_dotenv("../.env")
         self._conn = None
 
-        print(os.getenv('DB_USER'))
-
     def connect(self):
         if self._conn is not None:
             if self._conn.is_connected():
