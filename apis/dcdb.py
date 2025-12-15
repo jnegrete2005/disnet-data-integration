@@ -1,5 +1,5 @@
 from apis.api_interface import IAPI
-from domain.models import Drug
+from domain.models import Drug, PUBCHEM_DISNET_SOURCE_ID
 
 from .schemas.dcdb import DrugCombDBAPIResponse, DrugCombData, DrugData
 
@@ -39,6 +39,7 @@ class DrugCombDBAPI(IAPI):
         drug = Drug(
             drug_id=drug_id,
             drug_name=drug_data.drug_name_official,
+            source_id=PUBCHEM_DISNET_SOURCE_ID,
             chemical_structure=drug_data.smiles_string,
         )
         return drug

@@ -32,6 +32,7 @@ class ExperimentSource:
 
 # Drug-related entities
 UNKNOWN_SOURCE_ID = -1
+PUBCHEM_DISNET_SOURCE_ID = 6
 
 
 @dataclass
