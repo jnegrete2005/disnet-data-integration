@@ -1,11 +1,12 @@
 from domain.models import Drug, ForeignMap
 
 from repo.base import sql_op
+from repo.generic_repo import GenericRepo
 
 
-class DrugRepo:
+class DrugRepo(GenericRepo):
     def __init__(self, db):
-        self.db = db
+        super().__init__(db)
 
     @sql_op()
     def __create_drug_raw_table(self, cursor) -> bool:
@@ -59,6 +60,33 @@ class DrugRepo:
 
         insert_query = """
             INSERT INTO drug_raw (drug_id, source_id, drug_name, molecular_type, chemical_structure, inchi_key)
+            VALUES (%s, %s, %s, %s, %s, %s);
+        """
+        cursor.execute(insert_query, (
+            drug.drug_id,
+            drug.source_id,
+            drug.drug_name,
+            drug.molecular_type,
+            drug.chemical_structure,
+            drug.inchi_key
+        ))
+
+        return drug.drug_id
+
+    @sql_op(returns_bool=False)
+    def get_or_create_chembl_drug(self, cursor, drug: Drug) -> str | None:
+        select_query = """
+            SELECT drug_id
+            FROM drug
+            WHERE drug_id = %s;
+        """
+        cursor.execute(select_query, (drug.drug_id,))
+        result = cursor.fetchone()
+        if result:
+            return result['drug_id']
+
+        insert_query = """
+            INSERT INTO drug (drug_id, source_id, drug_name, molecular_type, chemical_structure, inchi_key)
             VALUES (%s, %s, %s, %s, %s, %s);
         """
         cursor.execute(insert_query, (

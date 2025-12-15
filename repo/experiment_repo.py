@@ -3,11 +3,12 @@ from domain.models import Experiment, Score
 from repo.base import sql_op
 from repo.metadata_repo import MetadataRepo
 from repo.drugcomb_repo import DrugCombRepo
+from repo.generic_repo import GenericRepo
 
 
-class ExperimentRepo:
+class ExperimentRepo(GenericRepo):
     def __init__(self, db):
-        self.db = db
+        super().__init__(db)
         self.metadata_repo = MetadataRepo(db)
         self.drugcomb_repo = DrugCombRepo(db)
 

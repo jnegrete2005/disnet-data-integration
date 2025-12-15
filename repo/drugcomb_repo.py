@@ -1,9 +1,10 @@
 from repo.base import sql_op
+from repo.generic_repo import GenericRepo
 
 
-class DrugCombRepo:
+class DrugCombRepo(GenericRepo):
     def __init__(self, db):
-        self.db = db
+        super().__init__(db)
 
     @sql_op()
     def __create_drug_combination_table(self, cursor) -> bool:

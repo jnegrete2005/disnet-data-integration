@@ -1,10 +1,12 @@
 from domain.models import CellLine, ExperimentClassification, ExperimentSource, Score
+
 from repo.base import sql_op
+from repo.generic_repo import GenericRepo
 
 
-class MetadataRepo:
+class MetadataRepo(GenericRepo):
     def __init__(self, db):
-        self.db = db
+        super().__init__(db)
 
     @sql_op()
     def __create_exp_class_table(self, cursor) -> bool:
