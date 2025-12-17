@@ -12,11 +12,26 @@ class UMLSAPI(IAPI):
         load_dotenv("../.env")
         self.api_key = os.getenv('UMLS_API_KEY')
 
-    def get_data(self, endpoint: str, params: dict = None) -> dict:
+    def ncit_to_umls_cui(self, ncit_id: str) -> tuple[str | None, str | None]:
+        if ncit_id is None:
+            return None, None
+        endpoint = "search/current"
         url = f"{self.base_url}{endpoint}"
-        params['apiKey'] = self.api_key
+        params = {
+            "string": ncit_id,
+            "inputType": "sourceUi",
+            "searchType": "exact",
+            "sabs": "NCI",
+            "apiKey": self.api_key,
+            "pageSize": 1,
+        }
         response = requests.get(url, params=params)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            response.raise_for_status()
+        response.raise_for_status()
+        data = response.json()
+        result = data.get("result", {}) \
+            .get("results", [{}])[0]
+
+        if not result:
+            return None, None
+
+        return result.get("ui", None), result.get("name", None)

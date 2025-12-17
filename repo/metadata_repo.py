@@ -1,4 +1,4 @@
-from domain.models import CellLine, ExperimentClassification, ExperimentSource, Score
+from domain.models import CellLine, ExperimentClassification, ExperimentSource, Score, Disease
 
 from repo.base import sql_op
 from repo.generic_repo import GenericRepo
@@ -140,3 +140,20 @@ class MetadataRepo(GenericRepo):
         """
         cursor.execute(insert_query, (cell_line_name, cell_line.disease_id))
         return cursor.lastrowid
+
+    @sql_op(returns_bool=False)
+    def get_or_create_disease_id(self, cursor, disease: Disease) -> str | None:
+        select_query = """
+        SELECT disease_id FROM disease;
+        """
+        cursor.execute(select_query)
+        result = cursor.fetchone()
+        if result:
+            return result[0]
+
+        insert_query = """
+        INSERT INTO disease (disease_id, disease_name)
+        VALUES (%s, %s);
+        """
+        cursor.execute(insert_query, (disease.umls_cui, disease.name))
+        return disease.umls_cui

@@ -30,9 +30,16 @@ class ExperimentSource:
     source_name: str
 
 
+@dataclass
+class Disease:
+    umls_cui: str
+    name: str
+
+
 # Drug-related entities
 UNKNOWN_SOURCE_ID = -1
 PUBCHEM_DISNET_SOURCE_ID = 6
+COSMIC_DISNET_SOURCE_ID = 7
 
 
 @dataclass

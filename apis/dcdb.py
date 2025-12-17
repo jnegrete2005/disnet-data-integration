@@ -43,3 +43,19 @@ class DrugCombDBAPI(IAPI):
             chemical_structure=drug_data.smiles_string,
         )
         return drug
+
+    def get_cell_line_info(self, cell_line_name: str) -> dict[str, str | None]:
+        endpoint = "cellLine/cellName"
+        url = f"{self.base_url}{endpoint}"
+        params = {"cellName": cell_line_name}
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+
+        api_response = DrugCombDBAPIResponse[dict].model_validate(response.json())
+        if api_response.code != 200 or api_response.data is None:
+            raise ValueError(f"API returned error code {api_response.code}: {api_response.msg}")
+
+        return {
+            "cosmic_id": api_response.data.get("cosmicId"),
+            "cellosaurus_id": api_response.data.get("cellosaurus_assession")
+        }
