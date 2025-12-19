@@ -25,7 +25,20 @@ class DrugPipeline(IntegrationPipeline):
     6. "                     " load the translation mapping into the DISNET database.
     """
     @classmethod
-    def run(cls, drug_name: str) -> Drug | None:
+    def run(cls, drug_combination: list[str]) -> set[Drug] | None:
+        processed_drugs: set[Drug] = set()
+        for drug_name in drug_combination:
+            if "(approved)" in drug_name:
+                drug_name = drug_name.replace("(approved)", "").strip()
+
+            processed_drug = cls.__get_drug_info(drug_name)
+            if processed_drug:
+                processed_drugs.add(processed_drug)
+
+        return processed_drugs if processed_drugs else None
+
+    @classmethod
+    def __get_drug_info(cls, drug_name: str) -> Drug:
         # Step 1: Extract the drug's data from DrugCombDB
         raw_drug = DrugCombDBAPI().get_drug_info(drug_name)
         if not raw_drug:
@@ -59,7 +72,7 @@ class DrugPipeline(IntegrationPipeline):
 
             return chembl_drug
 
-        return None
+        return raw_drug
 
     @staticmethod
     def __get_drug_info_from_chembl(chembl_id: str) -> Drug | None:

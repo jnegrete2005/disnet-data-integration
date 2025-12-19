@@ -44,8 +44,4 @@ class DrugCombDBPipeline(IntegrationPipeline):
             drugs = [drugcomb.drug1, drugcomb.drug2]
             chembl_drugs: list[Drug | None] = []
 
-            for drug in drugs:
-                if "(approved)" in drug:
-                    drug = drug.replace("(approved)", "").strip()
-
-                chembl_drugs.append(DrugPipeline.run(drug.drug_name))
+            chembl_drugs.append(DrugPipeline.run(drugs))
