@@ -18,7 +18,7 @@ def sql_op(*, returns_bool: bool = True) -> Callable[
 
     def decorator(method: Callable[Concatenate[GenericRepo, MySQLCursor, P], R]) -> Callable[Concatenate[GenericRepo, P], R]:
         @wraps(method)
-        def wrapper(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        def wrapper(self: GenericRepo, *args: P.args, **kwargs: P.kwargs) -> R:
             conn = self.db.conn
             cursor = self.db.get_cursor()
             if conn is None or cursor is None:

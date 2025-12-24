@@ -11,17 +11,30 @@ class CellLine:
     disease_id: int
     tissue: str = None
 
+    def __eq__(self, value: "CellLine"):
+        return self.cell_line_id == value.cell_line_id \
+            and self.name == value.name \
+            and self.tissue == value.tissue
+
+    def __hash__(self):
+        return hash((
+            self.cell_line_id,
+            self.name,
+            self.tissue
+        ))
+
 
 @dataclass
 class Score:
+    score_id: int
     score_name: str
-    score_id: int | None = None
+    score_value: float
 
 
 @dataclass
 class ExperimentClassification:
+    classification_id: int
     classification_name: str
-    classification_id: int | None = None
 
 
 @dataclass
@@ -34,6 +47,16 @@ class ExperimentSource:
 class Disease:
     umls_cui: str
     name: str
+
+    def __eq__(self, value: "Disease"):
+        return self.umls_cui == value.umls_cui \
+            and self.name == value.name
+
+    def __hash__(self):
+        return hash((
+            self.umls_cui,
+            self.name
+        ))
 
 
 # Drug-related entities
@@ -62,9 +85,9 @@ class ForeignMap:
 # Main entity
 @dataclass
 class Experiment:
-    drugs_ids: list[Drug]  # List of Drug objects (N)
+    dc_id: int
     cell_line: CellLine
     experiment_classification: ExperimentClassification
     experiment_source: ExperimentSource
-    scores: dict[str, float]
+    scores: list[Score]
     experiment_id: int | None = None
