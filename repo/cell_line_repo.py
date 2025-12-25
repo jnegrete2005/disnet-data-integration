@@ -1,4 +1,4 @@
-from repo.base import sql_op
+from repo.base import sql_op, sql_insert_op
 from repo.generic_repo import GenericRepo
 
 from domain.models import Disease, CellLine
@@ -31,7 +31,7 @@ class CellLineRepo(GenericRepo):
             return False
         return True
 
-    @sql_op()
+    @sql_insert_op
     def add_cell_line(self, cursor, cell_line: CellLine) -> bool:
         """
         Insert a cell line into the DB. If duplicate key, do nothing.
@@ -41,8 +41,7 @@ class CellLineRepo(GenericRepo):
 
         insert_query = """
             INSERT INTO cell_line (cell_line_id, cell_line_name, tissue, disease_id)
-            VALUES (%s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE cell_line_id = cell_line_id;
+            VALUES (%s, %s, %s, %s);
         """
         cursor.execute(insert_query, (
             cell_line.cell_line_id,
@@ -50,12 +49,11 @@ class CellLineRepo(GenericRepo):
             cell_line.tissue,
             cell_line.disease_id
         ))
-
         self.cell_line_cache.add(cell_line)
 
         return True
 
-    @sql_op()
+    @sql_insert_op
     def add_disease(self, cursor, disease: Disease) -> bool:
         """
         Insert a disease into the DB. If duplicate key, do nothing.
@@ -65,8 +63,7 @@ class CellLineRepo(GenericRepo):
 
         insert_query = """
             INSERT INTO disease (disease_id, disease_name)
-            VALUES (%s, %s)
-            ON DUPLICATE KEY UPDATE disease_id = disease_id; 
+            VALUES (%s, %s);
         """
         cursor.execute(insert_query, (disease.umls_cui, disease.name))
         self.disease_cache.add(disease)
