@@ -1,4 +1,4 @@
-from apis.api_interface import IAPI
+from apis.api_interface import APIInterface
 
 import requests
 
@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import os
 
 
-class UMLSAPI(IAPI):
+class UMLSAPI(APIInterface):
     def __init__(self):
         super().__init__(base_url="https://uts-ws.nlm.nih.gov/rest/")
         load_dotenv("../.env")

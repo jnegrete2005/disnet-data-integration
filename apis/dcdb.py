@@ -1,4 +1,4 @@
-from apis.api_interface import IAPI
+from apis.api_interface import APIInterface
 from domain.models import Drug, PUBCHEM_DISNET_SOURCE_ID
 
 from .schemas.dcdb import DrugCombDBAPIResponse, DrugCombData, DrugData
@@ -6,7 +6,7 @@ from .schemas.dcdb import DrugCombDBAPIResponse, DrugCombData, DrugData
 import requests
 
 
-class DrugCombDBAPI(IAPI):
+class DrugCombDBAPI(APIInterface):
     def __init__(self):
         super().__init__(base_url="http://drugcombdb.denglab.org:8888/")
 

@@ -1,9 +1,9 @@
-from apis.api_interface import IAPI
+from apis.api_interface import APIInterface
 
 import requests
 
 
-class CellosaurusAPI(IAPI):
+class CellosaurusAPI(APIInterface):
     def __init__(self):
         super().__init__(base_url="https://api.cellosaurus.org/")
 
