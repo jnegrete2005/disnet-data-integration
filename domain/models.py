@@ -74,12 +74,35 @@ class Drug:
     chemical_structure: str | None = None
     inchi_key: str | None = None
 
+    def __eq__(self, value: "Drug"):
+        return self.drug_id == value.drug_id \
+            and self.drug_name == value.drug_name \
+            and self.inchi_key == value.inchi_key
+
+    def __hash__(self):
+        return hash((
+            self.drug_id,
+            self.drug_name
+        ))
+
 
 @dataclass
 class ForeignMap:
     foreign_id: str
     foreign_source_id: int
     chembl_id: str
+
+    def __eq__(self, value: "ForeignMap"):
+        return self.foreign_id == value.foreign_id \
+            and self.foreign_source_id == value.foreign_source_id \
+            and self.chembl_id == value.chembl_id
+
+    def __hash__(self):
+        return hash((
+            self.foreign_id,
+            self.foreign_source_id,
+            self.chembl_id
+        ))
 
 
 # Main entity
