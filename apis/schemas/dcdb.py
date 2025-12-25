@@ -20,12 +20,7 @@ class DrugCombData(BaseModel):
 
 class DrugData(BaseModel):
     c_ids: str = Field(..., alias="cIds")
-    drug_name: str = Field(..., alias="drugName")
     drug_name_official: str = Field(..., alias="drugNameOfficial")
-
-    img: Optional[str] = None
-    origin_img_url: Optional[str] = Field(None, alias="originImgUrl")
-    molecular_weight: Optional[str] = Field(None, alias="molecularWeight")
     smiles_string: Optional[str] = Field(None, alias="smilesString")
 
 
