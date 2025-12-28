@@ -32,14 +32,12 @@ class DisnetManager:
                 user=os.getenv('DB_USER'),
                 password=os.getenv('DB_PASSWORD')
             )
-            print("Conexión establecida.")
         except Error as e:
             print(f"Error de conexión: {e}")
 
     def disconnect(self):
         if self.conn:
             self.conn.close()
-            print("Conexión cerrada.")
 
     @property
     def conn(self) -> MySQLConnection | None:
