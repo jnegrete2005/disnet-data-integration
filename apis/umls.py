@@ -15,6 +15,7 @@ class UMLSAPI(APIInterface):
     def ncit_to_umls_cui(self, ncit_id: str) -> tuple[str | None, str | None]:
         if ncit_id is None:
             raise ValueError("ncit_id must not be None")
+
         endpoint = "search/current"
         url = f"{self.base_url}{endpoint}"
         params = {
