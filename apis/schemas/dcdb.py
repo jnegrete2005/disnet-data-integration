@@ -5,12 +5,10 @@ T = TypeVar('T')
 
 
 class DrugCombData(BaseModel):
-    id: int
     drug_combination: str = Field(..., alias="drugCombination")
     drug1: str
     drug2: str
     cell_line: str = Field(..., alias="cellName")
-    source: str
 
     hsa: Optional[float] = Field(None, alias="HSA")
     bliss: Optional[float] = Field(None, alias="Bliss")
