@@ -9,7 +9,7 @@ class CellosaurusAPI(APIInterface):
 
     def get_cell_line_disease(self, cellosaurus_id: str) -> str | None:
         if cellosaurus_id is None:
-            return None
+            raise ValueError("cellosaurus_id must not be None")
         endpoint = f"cell-line/{cellosaurus_id}"
         url = f"{self.base_url}{endpoint}"
         params = {
@@ -19,9 +19,16 @@ class CellosaurusAPI(APIInterface):
         response = requests.get(url, params=params)
         response.raise_for_status()
         data = response.json()
-        disease = data.get("Cellosaurus", {}) \
-            .get("cell-line-list", [{}])[0] \
-            .get("disease-list", [{}])[0]
+        disease = data.get("Cellosaurus", {})
+        if not disease:
+            return None
+        disease = disease.get("cell-line-list", [{}])
+        if not disease:
+            return None
+        disease = disease[0].get("disease-list", [{}])
+        if not disease:
+            return None
+        disease = disease[0]
 
         if not disease:
             return None
