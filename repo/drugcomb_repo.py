@@ -9,7 +9,7 @@ class DrugCombRepo(GenericRepo):
         # Cache for existing drug combination
         self.drugcomb_cache: dict[tuple[str], int] = {}
 
-    @sql_op()
+    @sql_op
     def __create_drug_combination_table(self, cursor) -> bool:
         create_table_query = """
             CREATE TABLE IF NOT EXISTS drug_combination (
@@ -19,7 +19,7 @@ class DrugCombRepo(GenericRepo):
         cursor.execute(create_table_query)
         return True
 
-    @sql_op()
+    @sql_op
     def __create_drug_comb_drug_table(self, cursor) -> bool:
         create_table_query = """
             CREATE TABLE IF NOT EXISTS drug_comb_drug (
@@ -42,8 +42,8 @@ class DrugCombRepo(GenericRepo):
         return True
 
     # TODO: This function will create a race condition if executed concurrently
-    @sql_op(returns_bool=False)
-    def get_or_create_combination(self, cursor, drug_ids: list[str]) -> int | None:
+    @sql_op
+    def get_or_create_combination(self, cursor, drug_ids: list[str]) -> int:
         drug_ids = sorted(set(drug_ids))
         if len(drug_ids) <= 1:
             raise ValueError("At least two unique drug IDs are required to form a combination.")

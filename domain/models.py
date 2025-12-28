@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 
+import hashlib
+import json
+
+
 # Basic entities
-
-
 @dataclass
 class CellLine:
     cell_line_id: str
@@ -26,9 +28,12 @@ class CellLine:
 
 @dataclass
 class Score:
-    score_id: int
     score_name: str
     score_value: float
+    score_id: int | None = None
+
+    def __post_init__(self):
+        self.score_value = round(self.score_value, 4)
 
 
 @dataclass
@@ -109,8 +114,22 @@ class ForeignMap:
 @dataclass
 class Experiment:
     dc_id: int
-    cell_line: CellLine
-    experiment_classification: ExperimentClassification
-    experiment_source: ExperimentSource
+    cell_line_id: str
+    experiment_classification_id: int
+    experiment_source_id: int
     scores: list[Score]
     experiment_id: int | None = None
+
+    @property
+    def experiment_hash(self) -> str:
+        payload = {
+            "dc_id": self.dc_id,
+            "cell_line_id": self.cell_line_id,
+            "experiment_classification_id": self.experiment_classification_id,
+            "experiment_source_id": self.experiment_source_id,
+            "scores": sorted(
+                [(score.score_id, score.score_value) for score in self.scores]
+            )
+        }
+        raw = json.dumps(payload, separators=(',', ':'), sort_keys=True)
+        return hashlib.sha256(raw.encode('utf-8')).hexdigest()

@@ -10,7 +10,7 @@ class CellLineRepo(GenericRepo):
         self.cell_line_cache: set[CellLine] = set()
         self.disease_cache: set[Disease] = set()
 
-    @sql_op()
+    @sql_op
     def __create_cell_line_table(self, cursor) -> bool:
         query = """
             CREATE TABLE IF NOT EXISTS cell_line (
@@ -31,7 +31,7 @@ class CellLineRepo(GenericRepo):
             return False
         return True
 
-    @sql_insert_op()
+    @sql_insert_op
     def add_cell_line(self, cursor, cell_line: CellLine) -> bool:
         """
         Insert a cell line into the DB. If duplicate key, do nothing.
@@ -53,7 +53,7 @@ class CellLineRepo(GenericRepo):
 
         return True
 
-    @sql_insert_op()
+    @sql_insert_op
     def add_disease(self, cursor, disease: Disease) -> bool:
         """
         Insert a disease into the DB. If duplicate key, do nothing.
