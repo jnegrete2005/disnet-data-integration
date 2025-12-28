@@ -55,4 +55,4 @@ class DrugCombDBAPI(APIInterface):
         if api_response.code != 200 or api_response.data is None:
             raise ValueError(f"API returned error code {api_response.code}: {api_response.msg}")
 
-        return api_response.data.get("cellosaurus_accession")
+        return api_response.data.get("cellosaurus_assession")
