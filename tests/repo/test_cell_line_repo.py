@@ -1,5 +1,7 @@
 import unittest
 
+from tests.repo.delete_tables import delete_tables
+
 from repo.cell_line_repo import CellLineRepo
 
 from infraestructure.database import DisnetManager
@@ -10,6 +12,7 @@ from domain.models import CellLine, Disease
 class TestCellLineRepo(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        delete_tables()
         cls.db = DisnetManager(test=True)
         cls.db.connect()
         cls.repo = CellLineRepo(cls.db)
@@ -104,9 +107,5 @@ class TestCellLineRepo(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cursor = cls.db.get_cursor()
-        cursor.execute("DROP TABLE IF EXISTS cell_line")
-        cursor.execute("DELETE FROM source")
-        cls.db.conn.commit()
-        cursor.close()
         cls.db.disconnect()
+        delete_tables()
