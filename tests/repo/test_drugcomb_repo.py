@@ -1,5 +1,7 @@
 import unittest
 
+from tests.repo.delete_tables import delete_tables
+
 from repo.drugcomb_repo import DrugCombRepo
 from repo.drug_repo import DrugRepo
 from infraestructure.database import DisnetManager
@@ -9,6 +11,7 @@ from domain.models import Drug
 class TestDrugCombRepo(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        delete_tables()
         cls.db = DisnetManager(test=True)
         cls.db.connect()
         cls.repo = DrugCombRepo(cls.db)
@@ -68,9 +71,9 @@ class TestDrugCombRepo(unittest.TestCase):
         self.assertIsNotNone(dc_id_3)
 
         # Check the cache
-        # self.assertIn(tuple(sorted(AB_ids)), self.repo.drugcomb_cache)
-        # self.assertIn(tuple(sorted(BC_ids)), self.repo.drugcomb_cache)
-        # self.assertIn(tuple(sorted(self.drug_ids)), self.repo.drugcomb_cache)
+        self.assertIn(tuple(sorted(AB_ids)), self.repo.drugcomb_cache)
+        self.assertIn(tuple(sorted(BC_ids)), self.repo.drugcomb_cache)
+        self.assertIn(tuple(sorted(self.drug_ids)), self.repo.drugcomb_cache)
 
         # Retrieve existing DCs
         dc_id_1_retrieved = self.repo.get_or_create_combination(AB_ids)
@@ -84,12 +87,5 @@ class TestDrugCombRepo(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # Clean up the database
-        cursor = cls.db.get_cursor()
-        cursor.execute("DROP TABLE IF EXISTS drug_comb_drug")
-        cursor.execute("DROP TABLE IF EXISTS drug_combination")
-        cursor.execute("DELETE FROM drug")
-        cursor.execute("DELETE FROM source")
-        cls.db.conn.commit()
-        cursor.close()
         cls.db.disconnect()
+        delete_tables()

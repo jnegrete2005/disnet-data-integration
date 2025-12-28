@@ -1,5 +1,7 @@
 import unittest
 
+from tests.repo.delete_tables import delete_tables
+
 from repo.drug_repo import DrugRepo
 from infraestructure.database import DisnetManager
 from domain.models import Drug, ForeignMap
@@ -8,6 +10,7 @@ from domain.models import Drug, ForeignMap
 class TestDrugRepo(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        delete_tables()
         cls.db = DisnetManager(test=True)
         cls.db.connect()
         cls.repo = DrugRepo(cls.db)
@@ -105,11 +108,5 @@ class TestDrugRepo(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cursor = cls.db.get_cursor()
-        cursor.execute("DROP TABLE IF EXISTS foreign_to_chembl")
-        cursor.execute("DROP TABLE IF EXISTS drug_raw")
-        cursor.execute("DELETE FROM drug")
-        cursor.execute("DELETE FROM source")
-        cls.db.conn.commit()
-        cursor.close()
         cls.db.disconnect()
+        delete_tables()
