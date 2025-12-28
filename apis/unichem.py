@@ -10,12 +10,12 @@ class UniChemAPI(APIInterface):
     def get_compound_mappings(self, compound: str) -> tuple[str | None, str | None]:
         endpoint = "compounds/"
         url = f"{self.base_url}{endpoint}"
-        params = {
+        body = {
             "compound": compound,
             "sourceID": 22,  # PubChem
             "type": "sourceID"
         }
-        response = requests.post(url, params=params)
+        response = requests.post(url, json=body)
         response.raise_for_status()
 
         data = response.json()
@@ -27,8 +27,8 @@ class UniChemAPI(APIInterface):
         inchi_key = compound_data.get("standardInchiKey")
 
         chembl_id = None
-        source = compound_data.get("sources")[0]
-        if source.get("id") == 1:  # ChEMBL source ID
-            chembl_id = source.get("compoundId")
+        source = compound_data.get("sources", [None])
+        if source and source[0].get("id") == 1:  # ChEMBL source ID
+            chembl_id = source[0].get("compoundId")
 
         return chembl_id, inchi_key
