@@ -44,7 +44,7 @@ class DrugCombDBAPI(APIInterface):
         )
         return drug
 
-    def get_cell_line_info(self, cell_line_name: str) -> dict[str, str | None]:
+    def get_cell_line_info(self, cell_line_name: str) -> str | None:
         endpoint = "cellLine/cellName"
         url = f"{self.base_url}{endpoint}"
         params = {"cellName": cell_line_name}
