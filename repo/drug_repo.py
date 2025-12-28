@@ -11,7 +11,7 @@ class DrugRepo(GenericRepo):
         self.drug_cache: set[Drug] = set()
         self.foreign_map_cache: set[ForeignMap] = set()
 
-    @sql_op()
+    @sql_op
     def __create_drug_raw_table(self, cursor) -> bool:
         create_table_query = """
             CREATE TABLE IF NOT EXISTS drug_raw (
@@ -27,7 +27,7 @@ class DrugRepo(GenericRepo):
         cursor.execute(create_table_query)
         return True
 
-    @sql_op()
+    @sql_op
     def __create_foreign_to_chembl_table(self, cursor) -> bool:
         create_table_query = """
             CREATE TABLE IF NOT EXISTS foreign_to_chembl (
@@ -49,7 +49,7 @@ class DrugRepo(GenericRepo):
             return False
         return True
 
-    @sql_insert_op()
+    @sql_insert_op
     def add_raw_drug(self, cursor, drug: Drug) -> bool:
         """
         Insert a raw drug into the DB. If duplicate key, do nothing.
@@ -73,7 +73,7 @@ class DrugRepo(GenericRepo):
 
         return drug.drug_id
 
-    @sql_insert_op()
+    @sql_insert_op
     def add_chembl_drug(self, cursor, drug: Drug) -> bool:
         if drug in self.drug_cache:
             return True
@@ -94,7 +94,7 @@ class DrugRepo(GenericRepo):
 
         return True
 
-    @sql_insert_op()
+    @sql_insert_op
     def map_foreign_to_chembl(self, cursor, mapping: ForeignMap) -> bool:
         if mapping in self.foreign_map_cache:
             return True
