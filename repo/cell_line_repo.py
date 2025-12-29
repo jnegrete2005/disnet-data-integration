@@ -16,8 +16,8 @@ class CellLineRepo(GenericRepo):
             CREATE TABLE IF NOT EXISTS cell_line (
                 cell_line_id CHAR(9) PRIMARY KEY, -- CVCL_XXXX
                 cell_line_name VARCHAR(100) NOT NULL UNIQUE,
-                tissue VARCHAR(100),
                 source_id INT,
+                tissue VARCHAR(100),
                 disease_id VARCHAR(50) CHARACTER SET utf8mb3, 
                 FOREIGN KEY (disease_id) REFERENCES disease(disease_id),
                 FOREIGN KEY (source_id) REFERENCES source(source_id)
@@ -40,12 +40,13 @@ class CellLineRepo(GenericRepo):
             return True
 
         insert_query = """
-            INSERT INTO cell_line (cell_line_id, cell_line_name, tissue, disease_id)
-            VALUES (%s, %s, %s, %s);
+            INSERT INTO cell_line (cell_line_id, cell_line_name, source_id, tissue, disease_id)
+            VALUES (%s, %s, %s, %s, %s);
         """
         cursor.execute(insert_query, (
             cell_line.cell_line_id,
             cell_line.name,
+            cell_line.source_id,
             cell_line.tissue,
             cell_line.disease_id
         ))
