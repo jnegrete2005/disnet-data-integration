@@ -105,6 +105,25 @@ class TestCellLineRepo(unittest.TestCase):
         cursor.close()
         self.assertEqual(count, 1)
 
+    def test_add_cell_line_no_disease(self):
+        # Add the cell line to the DB without disease
+        cell_line = CellLine(
+            cell_line_id="CVCL_0002",
+            source_id=self.source_id,
+            name="Test Cell Line No Disease",
+            disease_id=None,
+            tissue="Test Cell Tissue",
+        )
+        result = self.repo.add_cell_line(cell_line)
+        self.assertTrue(result)
+
+        cursor = self.db.get_cursor()
+        cursor.execute("SELECT cell_line_name, disease_id FROM cell_line")
+        row = cursor.fetchone()
+        cursor.close()
+        self.assertEqual(row[0], cell_line.name)
+        self.assertIsNone(row[1])
+
     @classmethod
     def tearDownClass(cls):
         cls.db.disconnect()
