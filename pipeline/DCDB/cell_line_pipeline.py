@@ -39,7 +39,7 @@ class CellLineDiseasePipeline(IntegrationPipeline):
         # Step 1: Extract the cell line Cellosaurus ID from DrugCombDB
         cellosaurus_accession, tissue = self.dcdb_api.get_cell_line_info(cell_line_name)
         if cellosaurus_accession is None:
-            return None
+            raise CellLineNotResolvableError(cell_line_name, "not found in DrugCombDB database.")
 
         umls_cui = None
 
@@ -67,3 +67,17 @@ class CellLineDiseasePipeline(IntegrationPipeline):
         )
         self.cell_line_repo.add_cell_line(cell_line)
         return cell_line
+
+
+class CellLineNotResolvableError(Exception):
+    """
+    Exception raised when a cell line cannot be resolved.
+    """
+
+    def __init__(self, cell_line_name: str, reason: str = None):
+        msg = f"Cell line '{cell_line_name}' could not be resolved"
+        if reason:
+            msg += f": {reason}"
+        super().__init__(msg)
+        self.cell_line_name = cell_line_name
+        self.reason = reason
