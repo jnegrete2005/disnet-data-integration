@@ -67,7 +67,7 @@ class Disease:
 # Drug-related entities
 UNKNOWN_SOURCE_ID = -1
 PUBCHEM_DISNET_SOURCE_ID = 6
-COSMIC_DISNET_SOURCE_ID = 7
+CELLOSAURUS_DISNET_SOURCE_ID = 7
 
 
 @dataclass

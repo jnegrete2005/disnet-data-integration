@@ -4,7 +4,7 @@ from apis.dcdb import DrugCombDBAPI
 from apis.cellosaurus import CellosaurusAPI
 from apis.umls import UMLSAPI
 
-from domain.models import Disease, CellLine, COSMIC_DISNET_SOURCE_ID
+from domain.models import CELLOSAURUS_DISNET_SOURCE_ID, Disease, CellLine
 
 from infraestructure.database import DisnetManager
 
@@ -35,7 +35,18 @@ class CellLineDiseasePipeline(IntegrationPipeline):
         self.cellosaurus_api = cellosaurus_api or CellosaurusAPI()
         self.umls_api = umls_api or UMLSAPI()
 
-    def run(self, cell_line_name: str) -> CellLine | None:
+    def run(self, cell_line_name: str) -> CellLine:
+        """
+        Given a cell line name from a DrugCombDB combination, process and load
+        the cell line and its associated disease into the DISNET database.
+
+        :param cell_line_name: Name of the cell line from a DrugCombDB combination.
+        :type cell_line_name: str
+        :return: Processed CellLine object.
+        :rtype: CellLine
+
+        :raises CellLineNotResolvableError: If the cell line cannot be resolved.
+        """
         # Step 1: Extract the cell line Cellosaurus ID from DrugCombDB
         cellosaurus_accession, tissue = self.dcdb_api.get_cell_line_info(cell_line_name)
         if cellosaurus_accession is None:
@@ -60,7 +71,7 @@ class CellLineDiseasePipeline(IntegrationPipeline):
         # Step 5: Load the cell line into the DISNET database
         cell_line = CellLine(
             cell_line_id=cellosaurus_accession,
-            source_id=COSMIC_DISNET_SOURCE_ID,
+            source_id=CELLOSAURUS_DISNET_SOURCE_ID,
             name=cell_line_name,
             tissue=tissue,
             disease_id=umls_cui
