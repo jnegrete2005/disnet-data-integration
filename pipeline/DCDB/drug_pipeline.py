@@ -43,7 +43,7 @@ class DrugPipeline(IntegrationPipeline):
 
         :param drug_combination: List of drug names from a DrugCombDB combination.
         :type drug_combination: list[str]
-        :return: Set of processed Drug objects.
+        :return: Set of processed Drug objects. Must be chembl drugs.
         :rtype: set[Drug]
 
         :raises DrugNotResolvableError: If any drug cannot be resolved.
@@ -77,7 +77,7 @@ class DrugPipeline(IntegrationPipeline):
         self.__persist_raw_drug(raw_drug)
 
         if not chembl_id:
-            return raw_drug
+            raise DrugNotResolvableError(drug_name, NOT_FOUND_IN_UNICHEM_CODE)
 
         # Step 4: Get the drug's data from ChEMBL
         chembl_drug = self.__get_drug_info_from_chembl(chembl_id)
@@ -126,7 +126,8 @@ class DrugPipeline(IntegrationPipeline):
 
 
 NOT_FOUND_IN_DCDB_CODE = 1
-NOT_FOUND_IN_CHEMBL_CODE = 2
+NOT_FOUND_IN_UNICHEM_CODE = 2
+NOT_FOUND_IN_CHEMBL_CODE = 3
 
 
 class DrugNotResolvableError(Exception):
@@ -135,6 +136,8 @@ class DrugNotResolvableError(Exception):
         reason = ""
         if code == NOT_FOUND_IN_DCDB_CODE:
             reason = "not found in DrugCombDB database, despite being in a combination"
+        elif code == NOT_FOUND_IN_UNICHEM_CODE:
+            reason = "could not find CHEMBL ID mapping in UniChem"
         elif code == NOT_FOUND_IN_CHEMBL_CODE:
             reason = "not found in ChEMBL database, despite being mapped in UniChem"
 
