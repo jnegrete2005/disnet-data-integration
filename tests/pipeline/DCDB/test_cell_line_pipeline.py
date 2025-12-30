@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 
 from pipeline.DCDB.cell_line_pipeline import CellLineDiseasePipeline, CellLineNotResolvableError
-from domain.models import CellLine, Disease, COSMIC_DISNET_SOURCE_ID
+from domain.models import CellLine, Disease, CELLOSAURUS_DISNET_SOURCE_ID
 
 
 class TestCellLineDiseasePipeline(unittest.TestCase):
@@ -38,7 +38,7 @@ class TestCellLineDiseasePipeline(unittest.TestCase):
         self.assertEqual(cell_line.cell_line_id, "CVCL_1059")
         self.assertEqual(cell_line.name, "A2058")
         self.assertEqual(cell_line.disease_id, "C0001234")
-        self.assertEqual(cell_line.source_id, COSMIC_DISNET_SOURCE_ID)
+        self.assertEqual(cell_line.source_id, CELLOSAURUS_DISNET_SOURCE_ID)
 
         # Disease inserted
         self.cell_line_repo.add_disease.assert_called_once()
