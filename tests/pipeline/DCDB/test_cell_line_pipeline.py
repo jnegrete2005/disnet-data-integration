@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
-from pipeline.DCDB.cell_line_pipeline import CellLineDiseasePipeline
+from pipeline.DCDB.cell_line_pipeline import CellLineDiseasePipeline, CellLineNotResolvableError
 from domain.models import CellLine, Disease, COSMIC_DISNET_SOURCE_ID
 
 
@@ -52,9 +52,8 @@ class TestCellLineDiseasePipeline(unittest.TestCase):
     def test_run_no_cell_line_found(self):
         self.dcdb_api.get_cell_line_info.return_value = (None, None)
 
-        result = self.pipeline.run("UNKNOWN")
-
-        self.assertIsNone(result)
+        with self.assertRaises(CellLineNotResolvableError) as context:
+            self.pipeline.run("UNKNOWN_LINE")
 
         self.cell_line_repo.add_disease.assert_not_called()
         self.cell_line_repo.add_cell_line.assert_not_called()
