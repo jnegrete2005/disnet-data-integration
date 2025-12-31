@@ -7,7 +7,6 @@ from apis.umls import UMLSAPI
 
 
 class TestUMLSAPI(unittest.TestCase):
-
     def setUp(self):
         self.api = UMLSAPI()
         self.api.api_key = "FAKE_API_KEY"  # nunca usar la real en tests
@@ -21,14 +20,7 @@ class TestUMLSAPI(unittest.TestCase):
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
         mock_response.json.return_value = {
-            "result": {
-                "results": [
-                    {
-                        "ui": "C0006142",
-                        "name": "Melanoma"
-                    }
-                ]
-            }
+            "result": {"results": [{"ui": "C0006142", "name": "Melanoma"}]}
         }
         mock_get.return_value = mock_response
 
@@ -42,11 +34,7 @@ class TestUMLSAPI(unittest.TestCase):
     def test_valid_ncit_without_results_returns_none_tuple(self, mock_get):
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {
-            "result": {
-                "results": []
-            }
-        }
+        mock_response.json.return_value = {"result": {"results": []}}
         mock_get.return_value = mock_response
 
         cui, name = self.api.ncit_to_umls_cui("NCIT:XXXX")
@@ -57,7 +45,9 @@ class TestUMLSAPI(unittest.TestCase):
     @patch("requests.get")
     def test_http_error_is_propagated(self, mock_get):
         mock_response = Mock()
-        mock_response.raise_for_status.side_effect = requests.HTTPError("401 Unauthorized")
+        mock_response.raise_for_status.side_effect = requests.HTTPError(
+            "401 Unauthorized"
+        )
         mock_get.return_value = mock_response
 
         with self.assertRaises(requests.HTTPError):

@@ -10,7 +10,7 @@ class UMLSAPI(APIInterface):
     def __init__(self):
         super().__init__(base_url="https://uts-ws.nlm.nih.gov/rest/")
         load_dotenv("../.env")
-        self.api_key = os.getenv('UMLS_API_KEY')
+        self.api_key = os.getenv("UMLS_API_KEY")
 
     def ncit_to_umls_cui(self, ncit_id: str) -> tuple[str | None, str | None]:
         if ncit_id is None:
@@ -29,8 +29,7 @@ class UMLSAPI(APIInterface):
         response = requests.get(url, params=params)
         response.raise_for_status()
         data = response.json()
-        result = data.get("result", {}) \
-            .get("results", [{}])
+        result = data.get("result", {}).get("results", [{}])
         if not result or len(result) == 0:
             return None, None
         result = result[0]

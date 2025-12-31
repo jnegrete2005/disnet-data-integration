@@ -26,11 +26,11 @@ class DisnetManager:
         try:
             database = "drugslayer_test" if self.__test else "drugslayer"
             self._conn = mysql.connector.connect(
-                host='127.0.0.1',
+                host="127.0.0.1",
                 port=3306,
                 database=database,
-                user=os.getenv('DB_USER'),
-                password=os.getenv('DB_PASSWORD')
+                user=os.getenv("DB_USER"),
+                password=os.getenv("DB_PASSWORD"),
             )
         except Error as e:
             print(f"Error de conexión: {e}")

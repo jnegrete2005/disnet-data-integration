@@ -5,7 +5,6 @@ from pipeline.DCDB.score_pipeline import ScorePipeline
 
 
 class TestScorePipeline(unittest.TestCase):
-
     def setUp(self):
         """Initial setup before each test."""
         # Mock DB & Repo
@@ -17,8 +16,12 @@ class TestScorePipeline(unittest.TestCase):
         # Inject mocked repo
         self.pipeline.score_repo = self.score_repo
 
-        self.pipeline.score_repo.get_or_create_score.side_effect = \
-            lambda name: {"HSA": 1, "Bliss": 2, "Loewe": 3, "ZIP": 4}.get(name, 0)
+        self.pipeline.score_repo.get_or_create_score.side_effect = lambda name: {
+            "HSA": 1,
+            "Bliss": 2,
+            "Loewe": 3,
+            "ZIP": 4,
+        }.get(name, 0)
 
     def test_run_synergy_consensus(self):
         """Case 1: All scores are positive."""
@@ -53,10 +56,10 @@ class TestScorePipeline(unittest.TestCase):
         """Case 4: Mixed voting resulting in a tie (Additive)."""
         # Input: 2 positives vs 2 negatives
         scores, classification = self.pipeline.run(
-            hsa=10.0,   # +1 vote
+            hsa=10.0,  # +1 vote
             bliss=10.0,  # +1 vote
             loewe=-5.0,  # -1 vote
-            zip=-5.0    # -1 vote
+            zip=-5.0,  # -1 vote
         )
         # Net balance: 0
         self.assertEqual(classification, 0, "Tie in votes should result in 0")
@@ -65,10 +68,10 @@ class TestScorePipeline(unittest.TestCase):
         """Case 5: Mixed voting where the majority wins."""
         # Input: 3 positives vs 1 negative
         scores, classification = self.pipeline.run(
-            hsa=10.0,   # +1
+            hsa=10.0,  # +1
             bliss=10.0,  # +1
             loewe=10.0,  # +1
-            zip=-50.0   # -1
+            zip=-50.0,  # -1
         )
         # Net balance: +2 -> Normalized to 1
         self.assertEqual(classification, 1, "Majority of positives should win")
@@ -80,7 +83,9 @@ class TestScorePipeline(unittest.TestCase):
             hsa=None, bliss=None, loewe=None, zip=12.5
         )
 
-        self.assertEqual(classification, 1, "Should classify based only on available data")
+        self.assertEqual(
+            classification, 1, "Should classify based only on available data"
+        )
         self.assertEqual(len(scores), 1, "There should only be 1 Score object")
         self.assertEqual(scores[0].score_name, "ZIP")
 

@@ -14,16 +14,14 @@ class CellLine:
     tissue: str = None
 
     def __eq__(self, value: "CellLine"):
-        return self.cell_line_id == value.cell_line_id \
-            and self.name == value.name \
+        return (
+            self.cell_line_id == value.cell_line_id
+            and self.name == value.name
             and self.tissue == value.tissue
+        )
 
     def __hash__(self):
-        return hash((
-            self.cell_line_id,
-            self.name,
-            self.tissue
-        ))
+        return hash((self.cell_line_id, self.name, self.tissue))
 
 
 @dataclass
@@ -54,14 +52,10 @@ class Disease:
     name: str
 
     def __eq__(self, value: "Disease"):
-        return self.umls_cui == value.umls_cui \
-            and self.name == value.name
+        return self.umls_cui == value.umls_cui and self.name == value.name
 
     def __hash__(self):
-        return hash((
-            self.umls_cui,
-            self.name
-        ))
+        return hash((self.umls_cui, self.name))
 
 
 # Drug-related entities
@@ -80,15 +74,14 @@ class Drug:
     inchi_key: str | None = None
 
     def __eq__(self, value: "Drug"):
-        return self.drug_id == value.drug_id \
-            and self.drug_name == value.drug_name \
+        return (
+            self.drug_id == value.drug_id
+            and self.drug_name == value.drug_name
             and self.inchi_key == value.inchi_key
+        )
 
     def __hash__(self):
-        return hash((
-            self.drug_id,
-            self.drug_name
-        ))
+        return hash((self.drug_id, self.drug_name))
 
 
 @dataclass
@@ -98,16 +91,14 @@ class ForeignMap:
     chembl_id: str
 
     def __eq__(self, value: "ForeignMap"):
-        return self.foreign_id == value.foreign_id \
-            and self.foreign_source_id == value.foreign_source_id \
+        return (
+            self.foreign_id == value.foreign_id
+            and self.foreign_source_id == value.foreign_source_id
             and self.chembl_id == value.chembl_id
+        )
 
     def __hash__(self):
-        return hash((
-            self.foreign_id,
-            self.foreign_source_id,
-            self.chembl_id
-        ))
+        return hash((self.foreign_id, self.foreign_source_id, self.chembl_id))
 
 
 # Main entity
@@ -129,7 +120,7 @@ class Experiment:
             "experiment_source_id": self.experiment_source_id,
             "scores": sorted(
                 [(score.score_id, score.score_value) for score in self.scores]
-            )
+            ),
         }
-        raw = json.dumps(payload, separators=(',', ':'), sort_keys=True)
-        return hashlib.sha256(raw.encode('utf-8')).hexdigest()
+        raw = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()

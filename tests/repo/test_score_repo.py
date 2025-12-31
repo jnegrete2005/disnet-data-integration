@@ -34,8 +34,7 @@ class TestScoreRepo(unittest.TestCase):
         # Check the DB directly
         cursor = self.db.get_cursor()
         cursor.execute(
-            "SELECT score_id FROM score WHERE score_name = %s;",
-            (score_name,)
+            "SELECT score_id FROM score WHERE score_name = %s;", (score_name,)
         )
         result = cursor.fetchone()
         self.assertIsNotNone(result)

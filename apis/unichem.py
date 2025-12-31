@@ -13,7 +13,7 @@ class UniChemAPI(APIInterface):
         body = {
             "compound": compound,
             "sourceID": 22,  # PubChem
-            "type": "sourceID"
+            "type": "sourceID",
         }
         response = requests.post(url, json=body)
         response.raise_for_status()
@@ -23,7 +23,9 @@ class UniChemAPI(APIInterface):
         if not data.get("compounds"):
             return None, None
 
-        compound_data = data["compounds"][0]  # Only one compound expected since looking by ID
+        compound_data = data["compounds"][
+            0
+        ]  # Only one compound expected since looking by ID
         inchi_key = compound_data.get("standardInchiKey")
 
         chembl_id = None

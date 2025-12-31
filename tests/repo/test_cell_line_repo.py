@@ -57,10 +57,7 @@ class TestCellLineRepo(unittest.TestCase):
 
     def test_add_cell_line(self):
         # Add the disease to the DB
-        disease = Disease(
-            umls_cui="C00002",
-            name="Test Disease"
-        )
+        disease = Disease(umls_cui="C00002", name="Test Disease")
         self.repo.add_disease(disease)
 
         # Add the cell line to the DB
@@ -82,10 +79,7 @@ class TestCellLineRepo(unittest.TestCase):
 
     def test_add_cell_line_cached(self):
         # Add the disease to the DB
-        disease = Disease(
-            umls_cui="C00003",
-            name="Test Disease"
-        )
+        disease = Disease(umls_cui="C00003", name="Test Disease")
         self.repo.add_disease(disease)
 
         # Add the cell line to the DB

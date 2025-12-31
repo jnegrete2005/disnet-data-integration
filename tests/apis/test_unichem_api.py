@@ -5,7 +5,6 @@ from apis.unichem import UniChemAPI
 
 
 class TestUniChemAPIUnit(unittest.TestCase):
-
     @patch("apis.unichem.requests.post")
     def test_get_compound_mappings_success(self, mock_post):
         """
@@ -19,12 +18,7 @@ class TestUniChemAPIUnit(unittest.TestCase):
             "compounds": [
                 {
                     "standardInchiKey": "ABCDEF-GHIJKL-MNOPQR",
-                    "sources": [
-                        {
-                            "id": 1,
-                            "compoundId": "CHEMBL25"
-                        }
-                    ]
+                    "sources": [{"id": 1, "compoundId": "CHEMBL25"}],
                 }
             ]
         }
@@ -38,11 +32,7 @@ class TestUniChemAPIUnit(unittest.TestCase):
 
         mock_post.assert_called_once_with(
             "https://www.ebi.ac.uk/unichem/api/v1/compounds/",
-            json={
-                "compound": "3385",
-                "sourceID": 22,
-                "type": "sourceID"
-            }
+            json={"compound": "3385", "sourceID": 22, "type": "sourceID"},
         )
 
     @patch("apis.unichem.requests.post")
@@ -55,9 +45,7 @@ class TestUniChemAPIUnit(unittest.TestCase):
 
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {
-            "compounds": []
-        }
+        mock_response.json.return_value = {"compounds": []}
         mock_post.return_value = mock_response
 
         api = UniChemAPI()
@@ -80,12 +68,7 @@ class TestUniChemAPIUnit(unittest.TestCase):
             "compounds": [
                 {
                     "standardInchiKey": "XYZ-123",
-                    "sources": [
-                        {
-                            "id": 22,
-                            "compoundId": "3385"
-                        }
-                    ]
+                    "sources": [{"id": 22, "compoundId": "3385"}],
                 }
             ]
         }
@@ -107,13 +90,7 @@ class TestUniChemAPIUnit(unittest.TestCase):
 
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {
-            "compounds": [
-                {
-                    "sources": []
-                }
-            ]
-        }
+        mock_response.json.return_value = {"compounds": [{"sources": []}]}
         mock_post.return_value = mock_response
 
         api = UniChemAPI()

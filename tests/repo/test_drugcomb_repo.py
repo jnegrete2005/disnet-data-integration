@@ -21,7 +21,7 @@ class TestDrugCombRepo(unittest.TestCase):
 
         # Create dummy source
         cursor = cls.db.get_cursor()
-        cursor.execute("INSERT INTO source (name) VALUES (\"Test Source\")")
+        cursor.execute('INSERT INTO source (name) VALUES ("Test Source")')
         cls.source_id = cursor.lastrowid
 
         # Create dummy drugs
@@ -31,7 +31,7 @@ class TestDrugCombRepo(unittest.TestCase):
             source_id=cls.source_id,
             molecular_type="Small molecule",
             chemical_structure="Structure 01",
-            inchi_key="INCHIKEY01"
+            inchi_key="INCHIKEY01",
         )
         drug02 = Drug(
             drug_id="DRUG02",
@@ -39,7 +39,7 @@ class TestDrugCombRepo(unittest.TestCase):
             source_id=cls.source_id,
             molecular_type="Small molecule",
             chemical_structure="Structure 02",
-            inchi_key="INCHIKEY02"
+            inchi_key="INCHIKEY02",
         )
         drug03 = Drug(
             drug_id="DRUG03",
@@ -47,7 +47,7 @@ class TestDrugCombRepo(unittest.TestCase):
             source_id=cls.source_id,
             molecular_type="Small molecule",
             chemical_structure="Structure 03",
-            inchi_key="INCHIKEY03"
+            inchi_key="INCHIKEY03",
         )
         drug_repo = DrugRepo(cls.db)
         drug_repo.add_chembl_drug(drug01)

@@ -16,10 +16,14 @@ class DrugCombDBAPI(APIInterface):
         response = requests.get(url)
         response.raise_for_status()
 
-        api_response = DrugCombDBAPIResponse[DrugCombData].model_validate(response.json())
+        api_response = DrugCombDBAPIResponse[DrugCombData].model_validate(
+            response.json()
+        )
 
         if api_response.code != 200 or api_response.data is None:
-            raise ValueError(f"API returned error code {api_response.code}: {api_response.msg}")
+            raise ValueError(
+                f"API returned error code {api_response.code}: {api_response.msg}"
+            )
 
         return api_response.data
 
@@ -32,7 +36,9 @@ class DrugCombDBAPI(APIInterface):
         api_response = DrugCombDBAPIResponse[DrugData].model_validate(response.json())
 
         if api_response.code != 200 or api_response.data is None:
-            raise ValueError(f"API returned error code {api_response.code}: {api_response.msg}")
+            raise ValueError(
+                f"API returned error code {api_response.code}: {api_response.msg}"
+            )
 
         drug_data = api_response.data
         drug_id = str(int(drug_data.c_ids[4:]))  # CIDs000xxx -> xxx
@@ -53,6 +59,10 @@ class DrugCombDBAPI(APIInterface):
 
         api_response = DrugCombDBAPIResponse[dict].model_validate(response.json())
         if api_response.code != 200 or api_response.data is None:
-            raise ValueError(f"API returned error code {api_response.code}: {api_response.msg}")
+            raise ValueError(
+                f"API returned error code {api_response.code}: {api_response.msg}"
+            )
 
-        return api_response.data.get("cellosaurus_assession"), api_response.data.get("tissue")
+        return api_response.data.get("cellosaurus_assession"), api_response.data.get(
+            "tissue"
+        )

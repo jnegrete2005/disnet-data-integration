@@ -1,7 +1,7 @@
 from typing import Optional, TypeVar, Generic
 from pydantic import BaseModel, Field
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class DrugCombData(BaseModel):
