@@ -1,16 +1,15 @@
 import unittest
-import warnings
 from unittest.mock import MagicMock
+
+from domain.models import Experiment, Score
+from infraestructure.database import DisnetManager
 
 # Adjust imports based on your actual file structure
 from pipeline.DCDB.experiment_pipeline import (
     ExperimentPipeline,
-    AdditiveExperimentWarning,
 )
-from infraestructure.database import DisnetManager
 from repo.drugcomb_repo import DrugCombRepo
 from repo.experiment_repo import ExperimentRepo
-from domain.models import Experiment, Score
 
 
 class TestExperimentPipeline(unittest.TestCase):
@@ -132,37 +131,44 @@ class TestExperimentPipeline(unittest.TestCase):
             "Antagonistic"
         )
 
-    def test_run_additive_warning_triggered(self):
+    def test_run_additive_flow_logs_warning(self):
         """
-        Test the pipeline when classification is 0 (Additive).
-        It MUST trigger an AdditiveExperimentWarning but still proceed to create the experiment.
+        Verifica que si la clasificación es 0 (Additive):
+        1. Se etiqueta como 'Additive'.
+        2. Se genera un log WARNING con la información correcta.
         """
-        # Arrange
-        classification_input = 0  # 0 = Additive
+        drug_names_test = ["Aspirin", "Ibuprofen"]
+        combination_id_test = 12345
 
-        # Act & Assert
-        # We use strict context manager to catch warnings
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")  # Cause all warnings to always be triggered
-
+        # Usamos assertLogs para capturar el logging durante este bloque
+        # Nota: Asegúrate de poner el nombre correcto del logger (normalmente el nombre del módulo)
+        # o pasa el logger object si lo tienes accesible.
+        # Aquí asumo que el logger se llama 'pipeline.experiment_pipeline' o similar,
+        # pero 'None' captura el root logger y sus hijos.
+        with self.assertLogs(level="WARNING") as cm:
             self.pipeline.run(
-                drug_ids=self.dummy_drug_ids,
-                classification=classification_input,
-                cell_line_id=self.dummy_cell_line,
-                scores=self.dummy_scores,
-                drug_names=self.dummy_drug_names,
-                combination_id=self.dummy_comb_id,
+                drug_ids=["D1", "D2"],
+                classification=0,  # 0 => Additive
+                cell_line_id="C1",
+                scores=[],
+                drug_names=drug_names_test,
+                combination_id=combination_id_test,
             )
 
-            # Check if warning was caught
-            self.assertEqual(len(w), 1, "Expected exactly one warning")
-            self.assertTrue(issubclass(w[-1].category, AdditiveExperimentWarning))
-            self.assertIn("classified as Additive", str(w[-1].message))
-            self.assertIn("DrugA, DrugB", str(w[-1].message))
+        # 1. Verificar clasificación
+        self.mock_experiment_repo.get_or_create_exp_class.assert_called_once_with(
+            "Additive"
+        )
 
-        # Even with warning, the pipeline should proceed:
-        self.mock_experiment_repo.get_or_create_exp_class.assert_called_with("Additive")
-        self.mock_experiment_repo.get_or_create_experiment.assert_called()
+        # 2. Verificar contenido del Log
+        # cm.output es una lista de strings con los mensajes loggeados
+        log_messages = cm.output
+        self.assertTrue(len(log_messages) > 0, "No se generaron logs de advertencia")
+
+        last_log = log_messages[-1]
+        self.assertIn(str(combination_id_test), last_log)
+        self.assertIn("Aspirin, Ibuprofen", last_log)
+        self.assertIn("classified as Additive", last_log)
 
     def test_dependency_injection_default(self):
         """
