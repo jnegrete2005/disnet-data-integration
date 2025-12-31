@@ -1,9 +1,9 @@
 from functools import wraps
 
-from repo.generic_repo import GenericRepo
-
-from mysql.connector.errors import IntegrityError
 from mysql.connector.errorcode import ER_DUP_ENTRY
+from mysql.connector.errors import IntegrityError
+
+from repo.generic_repo import GenericRepo
 
 
 def sql_op(method):

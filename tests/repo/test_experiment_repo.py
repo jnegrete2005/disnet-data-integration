@@ -1,16 +1,13 @@
 import unittest
 
-from tests.repo.delete_tables import delete_tables
-
-from repo.experiment_repo import ExperimentRepo
-from repo.drugcomb_repo import DrugCombRepo
-from repo.drug_repo import DrugRepo
-from repo.cell_line_repo import CellLineRepo
-from repo.score_repo import ScoreRepo
-
+from domain.models import CellLine, Disease, Drug, Experiment, Score
 from infraestructure.database import DisnetManager
-
-from domain.models import Drug, CellLine, Disease, Experiment, Score
+from repo.cell_line_repo import CellLineRepo
+from repo.drug_repo import DrugRepo
+from repo.drugcomb_repo import DrugCombRepo
+from repo.experiment_repo import ExperimentRepo
+from repo.score_repo import ScoreRepo
+from tests.repo.delete_tables import delete_tables
 
 
 class TestExperimentRepo(unittest.TestCase):

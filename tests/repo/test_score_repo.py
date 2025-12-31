@@ -1,10 +1,8 @@
 import unittest
 
-from tests.repo.delete_tables import delete_tables
-
-from repo.score_repo import ScoreRepo
-
 from infraestructure.database import DisnetManager
+from repo.score_repo import ScoreRepo
+from tests.repo.delete_tables import delete_tables
 
 
 class TestScoreRepo(unittest.TestCase):

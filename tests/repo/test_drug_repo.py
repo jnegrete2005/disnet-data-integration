@@ -1,10 +1,9 @@
 import unittest
 
-from tests.repo.delete_tables import delete_tables
-
-from repo.drug_repo import DrugRepo
-from infraestructure.database import DisnetManager
 from domain.models import Drug, ForeignMap
+from infraestructure.database import DisnetManager
+from repo.drug_repo import DrugRepo
+from tests.repo.delete_tables import delete_tables
 
 
 class TestDrugRepo(unittest.TestCase):

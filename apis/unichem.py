@@ -1,6 +1,6 @@
-from apis.api_interface import APIInterface
-
 import requests
+
+from apis.api_interface import APIInterface
 
 
 class UniChemAPI(APIInterface):

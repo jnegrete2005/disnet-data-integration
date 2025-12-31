@@ -1,6 +1,5 @@
 from domain.models import Drug, ForeignMap
-
-from repo.base import sql_op, sql_insert_op
+from repo.base import sql_insert_op, sql_op
 from repo.generic_repo import GenericRepo
 
 

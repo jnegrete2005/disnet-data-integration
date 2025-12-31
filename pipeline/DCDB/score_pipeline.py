@@ -1,9 +1,6 @@
-from pipeline.base_pipeline import IntegrationPipeline
-
 from domain.models import Score
-
 from infraestructure.database import DisnetManager
-
+from pipeline.base_pipeline import IntegrationPipeline
 from repo.score_repo import ScoreRepo
 
 
