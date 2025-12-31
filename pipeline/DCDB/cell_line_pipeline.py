@@ -1,4 +1,6 @@
-from pipeline.base_pipeline import IntegrationPipeline
+from pipeline.base_pipeline import ParallelablePipeline
+
+from dataclasses import dataclass
 
 from apis.dcdb import DrugCombDBAPI
 from apis.cellosaurus import CellosaurusAPI
@@ -11,7 +13,13 @@ from infraestructure.database import DisnetManager
 from repo.cell_line_repo import CellLineRepo
 
 
-class CellLineDiseasePipeline(IntegrationPipeline):
+@dataclass(frozen=True)
+class CellLineFetchResult:
+    cell_line: CellLine
+    disease: Disease | None
+
+
+class CellLineDiseasePipeline(ParallelablePipeline):
     """
     Process the cell line and the disease associated with a drug combination in DrugCombDB.
 
@@ -28,56 +36,50 @@ class CellLineDiseasePipeline(IntegrationPipeline):
         db: DisnetManager,
         dcdb_api: DrugCombDBAPI,
         cellosaurus_api: CellosaurusAPI,
-        umls_api: UMLSAPI
+        umls_api: UMLSAPI,
     ):
         self.cell_line_repo = CellLineRepo(db)
         self.dcdb_api = dcdb_api or DrugCombDBAPI()
         self.cellosaurus_api = cellosaurus_api or CellosaurusAPI()
         self.umls_api = umls_api or UMLSAPI()
 
-    def run(self, cell_line_name: str) -> CellLine:
-        """
-        Given a cell line name from a DrugCombDB combination, process and load
-        the cell line and its associated disease into the DISNET database.
-
-        :param cell_line_name: Name of the cell line from a DrugCombDB combination.
-        :type cell_line_name: str
-        :return: Processed CellLine object.
-        :rtype: CellLine
-
-        :raises CellLineNotResolvableError: If the cell line cannot be resolved.
-        """
+    def fetch(self, cell_line_name: str) -> CellLineFetchResult:
         # Step 1: Extract the cell line Cellosaurus ID from DrugCombDB
         cellosaurus_accession, tissue = self.dcdb_api.get_cell_line_info(cell_line_name)
         if cellosaurus_accession is None:
-            raise CellLineNotResolvableError(cell_line_name, "not found in DrugCombDB database.")
+            raise CellLineNotResolvableError(
+                cell_line_name, "not found in DrugCombDB database."
+            )
 
         umls_cui = None
 
         # Step 2: Get the cell line's associated disease with the Cellosaurus API
-        ncit_accession = self.cellosaurus_api.get_cell_line_disease(cellosaurus_accession)
+        ncit_accession = self.cellosaurus_api.get_cell_line_disease(
+            cellosaurus_accession
+        )
 
         if ncit_accession is not None:
             # Step 3: Transform the disease ID (NCIt) to UMLS CUI using the UMLS API
             umls_cui, disease_name = self.umls_api.ncit_to_umls_cui(ncit_accession)
             if umls_cui is not None:
                 # Step 4: Load the disease into the DISNET database
-                disease = Disease(
-                    umls_cui=umls_cui,
-                    name=disease_name
-                )
-                self.cell_line_repo.add_disease(disease)
+                disease = Disease(umls_cui=umls_cui, name=disease_name)
 
-        # Step 5: Load the cell line into the DISNET database
         cell_line = CellLine(
             cell_line_id=cellosaurus_accession,
             source_id=CELLOSAURUS_DISNET_SOURCE_ID,
             name=cell_line_name,
             tissue=tissue,
-            disease_id=umls_cui
+            disease_id=umls_cui,
         )
-        self.cell_line_repo.add_cell_line(cell_line)
-        return cell_line
+        return CellLineFetchResult(
+            cell_line=cell_line, disease=disease if umls_cui is not None else None
+        )
+
+    def persist(self, fetch_result: CellLineFetchResult):
+        if fetch_result.disease:
+            self.cell_line_repo.add_disease(fetch_result.disease)
+        self.cell_line_repo.add_cell_line(fetch_result.cell_line)
 
 
 class CellLineNotResolvableError(Exception):

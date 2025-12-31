@@ -7,7 +7,13 @@ from repo.experiment_repo import ExperimentRepo
 
 from domain.models import Experiment, Score
 
-import warnings
+import logging
+
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 
 class ExperimentPipeline(IntegrationPipeline):
@@ -25,7 +31,7 @@ class ExperimentPipeline(IntegrationPipeline):
         self,
         db: DisnetManager,
         drug_comb_repo: DrugCombRepo = None,
-        experiment_repo: ExperimentRepo = None
+        experiment_repo: ExperimentRepo = None,
     ):
         self.drug_comb_repo = drug_comb_repo or DrugCombRepo(db)
         self.experiment_repo = experiment_repo or ExperimentRepo(db)
@@ -37,7 +43,7 @@ class ExperimentPipeline(IntegrationPipeline):
         cell_line_id: str,
         scores: list[Score],
         drug_names: list[str],
-        combination_id: int
+        combination_id: int,
     ) -> int:
         """
         Given a list of drug IDs and a classification, get or create the experiment entry in the DISNET database.
@@ -65,11 +71,10 @@ class ExperimentPipeline(IntegrationPipeline):
         # Step 2: Get or create the experiment classification entry
         class_name = self.__determine_classification_name(classification)
         if classification == 0:
-            warnings.warn(
-                AdditiveExperimentWarning(
-                    combination_id=combination_id,
-                    drug_names=drug_names
-                )
+            logger.warning(
+                "Experiment with drug combination ID %d and drugs %s is classified as Additive.",
+                combination_id,
+                ", ".join(drug_names),
             )
         classification_id = self.experiment_repo.get_or_create_exp_class(class_name)
 
@@ -82,7 +87,7 @@ class ExperimentPipeline(IntegrationPipeline):
             cell_line_id=cell_line_id,
             experiment_classification_id=classification_id,
             experiment_source_id=source_id,
-            scores=scores
+            scores=scores,
         )
         experiment_id = self.experiment_repo.get_or_create_experiment(experiment)
 
@@ -104,16 +109,3 @@ class ExperimentPipeline(IntegrationPipeline):
             return "Antagonistic"
         else:
             return "Additive"
-
-
-class AdditiveExperimentWarning(Warning):
-    """
-    Warning raised when an experiment is classified as Additive.
-    """
-
-    def __init__(self, combination_id: int, drug_names: list[str]):
-        self.combination_id = combination_id
-        self.drug_names = drug_names
-        message = (f"Experiment with drug combination ID {combination_id} "
-                   f"and drugs {', '.join(drug_names)} is classified as Additive.")
-        super().__init__(message)
