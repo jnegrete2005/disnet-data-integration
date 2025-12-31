@@ -1,12 +1,9 @@
 import unittest
 
-from tests.repo.delete_tables import delete_tables
-
-from repo.cell_line_repo import CellLineRepo
-
-from infraestructure.database import DisnetManager
-
 from domain.models import CellLine, Disease
+from infraestructure.database import DisnetManager
+from repo.cell_line_repo import CellLineRepo
+from tests.repo.delete_tables import delete_tables
 
 
 class TestCellLineRepo(unittest.TestCase):

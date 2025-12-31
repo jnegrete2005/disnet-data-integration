@@ -1,9 +1,9 @@
-from apis.api_interface import APIInterface
+import os
 
 import requests
-
 from dotenv import load_dotenv
-import os
+
+from apis.api_interface import APIInterface
 
 
 class UMLSAPI(APIInterface):

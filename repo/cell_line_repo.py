@@ -1,7 +1,6 @@
-from repo.base import sql_op, sql_insert_op
+from domain.models import CellLine, Disease
+from repo.base import sql_insert_op, sql_op
 from repo.generic_repo import GenericRepo
-
-from domain.models import Disease, CellLine
 
 
 class CellLineRepo(GenericRepo):

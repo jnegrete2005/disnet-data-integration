@@ -1,15 +1,11 @@
-from pipeline.base_pipeline import ParallelablePipeline
-
 from dataclasses import dataclass
 
-from apis.dcdb import DrugCombDBAPI
 from apis.cellosaurus import CellosaurusAPI
+from apis.dcdb import DrugCombDBAPI
 from apis.umls import UMLSAPI
-
-from domain.models import CELLOSAURUS_DISNET_SOURCE_ID, Disease, CellLine
-
+from domain.models import CELLOSAURUS_DISNET_SOURCE_ID, CellLine, Disease
 from infraestructure.database import DisnetManager
-
+from pipeline.base_pipeline import ParallelablePipeline
 from repo.cell_line_repo import CellLineRepo
 
 

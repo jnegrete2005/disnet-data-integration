@@ -1,10 +1,9 @@
-from domain.models import Experiment
+from mysql.connector.errorcode import ER_DUP_ENTRY
+from mysql.connector.errors import IntegrityError
 
+from domain.models import Experiment
 from repo.base import sql_op
 from repo.generic_repo import GenericRepo
-
-from mysql.connector.errors import IntegrityError
-from mysql.connector.errorcode import ER_DUP_ENTRY
 
 
 class ExperimentRepo(GenericRepo):

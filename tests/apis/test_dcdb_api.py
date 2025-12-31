@@ -1,9 +1,9 @@
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 from apis.dcdb import DrugCombDBAPI
 from apis.schemas.dcdb import DrugCombData
-from domain.models import Drug, PUBCHEM_DISNET_SOURCE_ID
+from domain.models import PUBCHEM_DISNET_SOURCE_ID, Drug
 
 
 class TestDrugCombDBAPIUnit(unittest.TestCase):

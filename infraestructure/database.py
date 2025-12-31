@@ -1,11 +1,10 @@
+import os
+from pathlib import Path
+
 import mysql.connector
+from dotenv import load_dotenv
 from mysql.connector import Error
 from mysql.connector.connection import MySQLConnection
-
-import os
-from dotenv import load_dotenv
-
-from pathlib import Path
 
 
 class DisnetManager:

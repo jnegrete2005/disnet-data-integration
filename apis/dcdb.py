@@ -1,9 +1,9 @@
-from apis.api_interface import APIInterface
-from domain.models import Drug, PUBCHEM_DISNET_SOURCE_ID
-
-from .schemas.dcdb import DrugCombDBAPIResponse, DrugCombData, DrugData
-
 import requests
+
+from apis.api_interface import APIInterface
+from domain.models import PUBCHEM_DISNET_SOURCE_ID, Drug
+
+from .schemas.dcdb import DrugCombData, DrugCombDBAPIResponse, DrugData
 
 
 class DrugCombDBAPI(APIInterface):
