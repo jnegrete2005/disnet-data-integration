@@ -7,13 +7,12 @@ from pipeline.DCDB.drug_pipeline import (
     DrugNotResolvableError,
     NOT_FOUND_IN_DCDB_CODE,
     NOT_FOUND_IN_UNICHEM_CODE,
-    NOT_FOUND_IN_CHEMBL_CODE
+    NOT_FOUND_IN_CHEMBL_CODE,
 )
 from domain.models import Drug, ForeignMap
 
 
 class TestDrugPipeline(unittest.TestCase):
-
     def setUp(self):
         # 1. Mock DB & Repo
         self.db = MagicMock()
@@ -25,15 +24,13 @@ class TestDrugPipeline(unittest.TestCase):
 
         # 3. Instantiate pipeline
         self.pipeline = DrugPipeline(
-            db=self.db,
-            dcdb_api=self.dcdb_api,
-            unichem_api=self.unichem_api
+            db=self.db, dcdb_api=self.dcdb_api, unichem_api=self.unichem_api
         )
 
         # 4. Inject mocked repo (Replacing the real one)
         self.pipeline.drug_repo = self.drug_repo
 
-    @patch('pipeline.DCDB.drug_pipeline.new_client')
+    @patch("pipeline.DCDB.drug_pipeline.new_client")
     def test_run_successful_full_translation(self, mock_chembl_client):
         """
         Scenario: DCDB -> UniChem -> ChEMBL -> Full Success
@@ -47,15 +44,17 @@ class TestDrugPipeline(unittest.TestCase):
         self.unichem_api.get_compound_mappings.return_value = (chembl_id, inchi_key)
 
         # Mock ChEMBL Chain: client.molecule.filter().only()
-        mock_chembl_client.molecule.filter.return_value.only.return_value = [{
-            "molecule_chembl_id": chembl_id,
-            "pref_name": "Aspirin",
-            "molecule_type": "Small molecule",
-            "molecule_structures": {
-                "canonical_smiles": "CC(=O)Oc1ccccc1C(=O)O",
-                "standard_inchi_key": inchi_key
+        mock_chembl_client.molecule.filter.return_value.only.return_value = [
+            {
+                "molecule_chembl_id": chembl_id,
+                "pref_name": "Aspirin",
+                "molecule_type": "Small molecule",
+                "molecule_structures": {
+                    "canonical_smiles": "CC(=O)Oc1ccccc1C(=O)O",
+                    "standard_inchi_key": inchi_key,
+                },
             }
-        }]
+        ]
 
         # --- Run ---
         result_set = self.pipeline.run(["Aspirin"])
@@ -65,7 +64,9 @@ class TestDrugPipeline(unittest.TestCase):
         # 1. APIs
         self.dcdb_api.get_drug_info.assert_called_with("Aspirin")
         self.unichem_api.get_compound_mappings.assert_called_with("12345")
-        mock_chembl_client.molecule.filter.assert_called_with(molecule_chembl_id=chembl_id)
+        mock_chembl_client.molecule.filter.assert_called_with(
+            molecule_chembl_id=chembl_id
+        )
 
         # 2. Repo Interactions (Using self.drug_repo)
         self.drug_repo.get_or_create_raw_drug.assert_called_once()
@@ -87,7 +88,9 @@ class TestDrugPipeline(unittest.TestCase):
         Scenario: DCDB -> UniChem (No Match) -> Raises error
         """
         # --- Data Setup ---
-        self.dcdb_api.get_drug_info.return_value = Drug(drug_id="999", source_id=2, drug_name="RareDrug")
+        self.dcdb_api.get_drug_info.return_value = Drug(
+            drug_id="999", source_id=2, drug_name="RareDrug"
+        )
         self.unichem_api.get_compound_mappings.return_value = (None, "SOME_INCHI")
 
         # --- Run ---
@@ -106,7 +109,9 @@ class TestDrugPipeline(unittest.TestCase):
         """
         Scenario: 'Paracetamol (approved)' -> 'Paracetamol'
         """
-        self.dcdb_api.get_drug_info.return_value = Drug(drug_id="1", drug_name="Paracetamol", source_id=2)
+        self.dcdb_api.get_drug_info.return_value = Drug(
+            drug_id="1", drug_name="Paracetamol", source_id=2
+        )
         self.unichem_api.get_compound_mappings.return_value = (None, None)
 
         with self.assertRaises(DrugNotResolvableError):
@@ -127,13 +132,15 @@ class TestDrugPipeline(unittest.TestCase):
 
         self.assertEqual(cm.exception.code, NOT_FOUND_IN_DCDB_CODE)
 
-    @patch('pipeline.DCDB.drug_pipeline.new_client')
+    @patch("pipeline.DCDB.drug_pipeline.new_client")
     def test_error_mapped_but_not_in_chembl(self, mock_chembl_client):
         """
         Scenario: UniChem Maps -> ChEMBL returns empty -> Raise Error Code 2
         """
         # 1. DCDB
-        self.dcdb_api.get_drug_info.return_value = Drug(drug_id="1", drug_name="X", source_id=2)
+        self.dcdb_api.get_drug_info.return_value = Drug(
+            drug_id="1", drug_name="X", source_id=2
+        )
         # 2. UniChem
         self.unichem_api.get_compound_mappings.return_value = ("CHEMBL_OLD", "KEY")
         # 3. ChEMBL (Empty list)

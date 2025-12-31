@@ -33,18 +33,18 @@ class TestExperimentRepo(unittest.TestCase):
 
         # Create dummy source
         cursor = cls.db.get_cursor()
-        cursor.execute("INSERT INTO source (name) VALUES (\"Test Source\")")
+        cursor.execute('INSERT INTO source (name) VALUES ("Test Source")')
         cls.source_id = cursor.lastrowid
 
         # Create dummy drugs
         cls.drugs = [
             Drug(
-                drug_id=f"DRUG0{i+1}",
-                drug_name=f"Test Drug {i+1}",
+                drug_id=f"DRUG0{i + 1}",
+                drug_name=f"Test Drug {i + 1}",
                 source_id=cls.source_id,
                 molecular_type="Small molecule",
-                chemical_structure=f"Structure 0{i+1}",
-                inchi_key=f"INCHIKEY0{i+1}"
+                chemical_structure=f"Structure 0{i + 1}",
+                inchi_key=f"INCHIKEY0{i + 1}",
             )
             for i in range(3)
         ]
@@ -59,12 +59,7 @@ class TestExperimentRepo(unittest.TestCase):
         cls.dc_id_2 = cls.dc_repo.get_or_create_combination(cls.drug_ids[1:])
 
         # Create dummy cell line
-        cls.cell_line_repo.add_disease(
-            Disease(
-                umls_cui="D000001",
-                name="Test Disease"
-            )
-        )
+        cls.cell_line_repo.add_disease(Disease(umls_cui="D000001", name="Test Disease"))
         cls.cell_line_id = "CVCL_0001"
         cls.cell_line_repo.add_cell_line(
             CellLine(
@@ -72,7 +67,7 @@ class TestExperimentRepo(unittest.TestCase):
                 source_id=cls.source_id,
                 name="Test Cell Line",
                 tissue="Lung",
-                disease_id="D000001"
+                disease_id="D000001",
             )
         )
 
@@ -95,7 +90,7 @@ class TestExperimentRepo(unittest.TestCase):
         cursor = self.db.get_cursor()
         cursor.execute(
             "SELECT classification_id FROM experiment_classification WHERE classification_name = %s",
-            (class_name,)
+            (class_name,),
         )
         result = cursor.fetchone()
         self.assertIsNotNone(result)
@@ -115,7 +110,7 @@ class TestExperimentRepo(unittest.TestCase):
         cursor = self.db.get_cursor()
         cursor.execute(
             "SELECT source_id FROM experiment_source WHERE source_name = %s",
-            (source_name,)
+            (source_name,),
         )
         result = cursor.fetchone()
         self.assertIsNotNone(result)
@@ -125,22 +120,20 @@ class TestExperimentRepo(unittest.TestCase):
     def test_get_or_create_experiment(self):
         scores1 = [
             Score(
-                score_id=self.score_id_A,
-                score_name=self.score_name_A,
-                score_value=4
+                score_id=self.score_id_A, score_name=self.score_name_A, score_value=4
             ),
             Score(
-                score_id=self.score_id_B,
-                score_name=self.score_name_B,
-                score_value=1
-            )
+                score_id=self.score_id_B, score_name=self.score_name_B, score_value=1
+            ),
         ]
         exp1 = Experiment(
             dc_id=self.dc_id_1,
             cell_line_id=self.cell_line_id,
             experiment_source_id=self.exp_repo.get_or_create_exp_source("Source A"),
-            experiment_classification_id=self.exp_repo.get_or_create_exp_class("Class A"),
-            scores=scores1
+            experiment_classification_id=self.exp_repo.get_or_create_exp_class(
+                "Class A"
+            ),
+            scores=scores1,
         )
         exp1.experiment_id = self.exp_repo.get_or_create_experiment(exp1)
         self.assertIsInstance(exp1.experiment_id, int)

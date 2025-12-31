@@ -21,9 +21,7 @@ def delete_tables():
             "cell_line",
         ]
         for table in tables:
-            cursor.execute(
-                f"DROP TABLE IF EXISTS {table}"
-            )
+            cursor.execute(f"DROP TABLE IF EXISTS {table}")
         db.conn.commit()
 
         cursor.execute("DELETE FROM drug")

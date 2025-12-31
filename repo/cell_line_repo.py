@@ -43,13 +43,16 @@ class CellLineRepo(GenericRepo):
             INSERT INTO cell_line (cell_line_id, cell_line_name, source_id, tissue, disease_id)
             VALUES (%s, %s, %s, %s, %s);
         """
-        cursor.execute(insert_query, (
-            cell_line.cell_line_id,
-            cell_line.name,
-            cell_line.source_id,
-            cell_line.tissue,
-            cell_line.disease_id
-        ))
+        cursor.execute(
+            insert_query,
+            (
+                cell_line.cell_line_id,
+                cell_line.name,
+                cell_line.source_id,
+                cell_line.tissue,
+                cell_line.disease_id,
+            ),
+        )
         self.cell_line_cache.add(cell_line)
 
         return True

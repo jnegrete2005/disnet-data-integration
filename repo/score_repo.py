@@ -1,5 +1,3 @@
-from domain.models import Score
-
 from repo.base import sql_op
 from repo.generic_repo import GenericRepo
 

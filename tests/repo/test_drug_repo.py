@@ -20,10 +20,10 @@ class TestDrugRepo(unittest.TestCase):
 
         # Create dummy source
         cursor = cls.db.get_cursor()
-        cursor.execute("INSERT INTO source (name) VALUES (\"CHEMBL\")")
+        cursor.execute('INSERT INTO source (name) VALUES ("CHEMBL")')
         cls.chembl_source_id = cursor.lastrowid
 
-        cursor.execute("INSERT INTO source (name) VALUES (\"Test\")")
+        cursor.execute('INSERT INTO source (name) VALUES ("Test")')
         cls.foreign_source_id = cursor.lastrowid
         cursor.close()
 
@@ -34,19 +34,17 @@ class TestDrugRepo(unittest.TestCase):
             source_id=cls.chembl_source_id,
             molecular_type="Small molecule",
             chemical_structure="Test Structure",
-            inchi_key="TESTINCHIKEY"
+            inchi_key="TESTINCHIKEY",
         )
 
         cls.raw_drug = Drug(
-            drug_id="RAW0001",
-            drug_name="Raw Drug",
-            source_id=cls.foreign_source_id
+            drug_id="RAW0001", drug_name="Raw Drug", source_id=cls.foreign_source_id
         )
 
         cls.mapping = ForeignMap(
             foreign_id="RAW0001",
             chembl_id="CHEMBL0001",
-            foreign_source_id=cls.foreign_source_id
+            foreign_source_id=cls.foreign_source_id,
         )
 
     def test_add_chembl_drug(self):
@@ -77,14 +75,19 @@ class TestDrugRepo(unittest.TestCase):
 
         # Check if it exists
         cursor = self.db.get_cursor()
-        cursor.execute("SELECT foreign_id, chembl_id, foreign_source_id FROM foreign_to_chembl")
+        cursor.execute(
+            "SELECT foreign_id, chembl_id, foreign_source_id FROM foreign_to_chembl"
+        )
         fetched_mapping = cursor.fetchone()
         cursor.close()
-        self.assertEqual(fetched_mapping, (
-            self.mapping.foreign_id,
-            self.mapping.chembl_id,
-            self.mapping.foreign_source_id
-        ))
+        self.assertEqual(
+            fetched_mapping,
+            (
+                self.mapping.foreign_id,
+                self.mapping.chembl_id,
+                self.mapping.foreign_source_id,
+            ),
+        )
 
     def test_cache_mechanism(self):
         # Add everything again to test cache

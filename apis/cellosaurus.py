@@ -14,7 +14,7 @@ class CellosaurusAPI(APIInterface):
         url = f"{self.base_url}{endpoint}"
         params = {
             "fields": "din",  # din is diseases from NCIt
-            "format": "json"
+            "format": "json",
         }
         response = requests.get(url, params=params)
         response.raise_for_status()

@@ -7,7 +7,6 @@ from domain.models import Drug, PUBCHEM_DISNET_SOURCE_ID
 
 
 class TestDrugCombDBAPIUnit(unittest.TestCase):
-
     @patch("apis.dcdb.requests.get")
     def test_get_drug_combination_info_parsing(self, mock_get):
         """
@@ -30,8 +29,8 @@ class TestDrugCombDBAPIUnit(unittest.TestCase):
                 "HSA": 5.53690281,
                 "Bliss": 6.256583897,
                 "ZIP": 1.718274208,
-                "Loewe": -2.750699326
-            }
+                "Loewe": -2.750699326,
+            },
         }
         mock_get.return_value = mock_response
 
@@ -63,8 +62,8 @@ class TestDrugCombDBAPIUnit(unittest.TestCase):
             "data": {
                 "drugNameOfficial": "5-fluorouracil",
                 "smilesString": "C1=NC=NC(=O)N1",
-                "cIds": "CIDs0003385"
-            }
+                "cIds": "CIDs0003385",
+            },
         }
         mock_get.return_value = mock_response
 
@@ -94,9 +93,7 @@ class TestDrugCombDBAPIUnit(unittest.TestCase):
         mock_response.json.return_value = {
             "code": 200,
             "msg": "success",
-            "data": {
-                "cellosaurus_assession": "CVCL_1059"
-            }
+            "data": {"cellosaurus_assession": "CVCL_1059"},
         }
         mock_get.return_value = mock_response
 
@@ -107,5 +104,5 @@ class TestDrugCombDBAPIUnit(unittest.TestCase):
 
         mock_get.assert_called_once_with(
             "http://drugcombdb.denglab.org:8888/cellLine/cellName",
-            params={"cellName": "A2058"}
+            params={"cellName": "A2058"},
         )

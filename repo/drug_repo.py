@@ -61,14 +61,17 @@ class DrugRepo(GenericRepo):
             INSERT INTO drug_raw (drug_id, source_id, drug_name, molecular_type, chemical_structure, inchi_key)
             VALUES (%s, %s, %s, %s, %s, %s);
         """
-        cursor.execute(insert_query, (
-            drug.drug_id,
-            drug.source_id,
-            drug.drug_name,
-            drug.molecular_type,
-            drug.chemical_structure,
-            drug.inchi_key
-        ))
+        cursor.execute(
+            insert_query,
+            (
+                drug.drug_id,
+                drug.source_id,
+                drug.drug_name,
+                drug.molecular_type,
+                drug.chemical_structure,
+                drug.inchi_key,
+            ),
+        )
         self.raw_drug_cache.add(drug)
 
         return drug.drug_id
@@ -82,14 +85,17 @@ class DrugRepo(GenericRepo):
             INSERT INTO drug (drug_id, source_id, drug_name, molecular_type, chemical_structure, inchi_key)
             VALUES (%s, %s, %s, %s, %s, %s);
         """
-        cursor.execute(insert_query, (
-            drug.drug_id,
-            drug.source_id,
-            drug.drug_name,
-            drug.molecular_type,
-            drug.chemical_structure,
-            drug.inchi_key
-        ))
+        cursor.execute(
+            insert_query,
+            (
+                drug.drug_id,
+                drug.source_id,
+                drug.drug_name,
+                drug.molecular_type,
+                drug.chemical_structure,
+                drug.inchi_key,
+            ),
+        )
         self.drug_cache.add(drug)
 
         return True
@@ -103,11 +109,10 @@ class DrugRepo(GenericRepo):
             INSERT INTO foreign_to_chembl (foreign_id, foreign_source_id, chembl_id)
             VALUES (%s, %s, %s);
         """
-        cursor.execute(insert_query, (
-            mapping.foreign_id,
-            mapping.foreign_source_id,
-            mapping.chembl_id
-        ))
+        cursor.execute(
+            insert_query,
+            (mapping.foreign_id, mapping.foreign_source_id, mapping.chembl_id),
+        )
         self.foreign_map_cache.add(mapping)
 
         return True

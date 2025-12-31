@@ -46,12 +46,14 @@ class DrugCombRepo(GenericRepo):
     def get_or_create_combination(self, cursor, drug_ids: list[str]) -> int:
         drug_ids = sorted(set(drug_ids))
         if len(drug_ids) <= 1:
-            raise ValueError("At least two unique drug IDs are required to form a combination.")
+            raise ValueError(
+                "At least two unique drug IDs are required to form a combination."
+            )
 
         if tuple(drug_ids) in self.drugcomb_cache:
             return self.drugcomb_cache[tuple(drug_ids)]
 
-        placeholders = ', '.join(['%s'] * len(drug_ids))
+        placeholders = ", ".join(["%s"] * len(drug_ids))
         select_query = f"""
             SELECT dc_id
             FROM drug_comb_drug
@@ -62,8 +64,8 @@ class DrugCombRepo(GenericRepo):
         cursor.execute(select_query, [len(drug_ids), *drug_ids, len(drug_ids)])
         result = cursor.fetchone()
         if result:
-            self.drugcomb_cache[tuple(drug_ids)] = result['dc_id']
-            return result['dc_id']
+            self.drugcomb_cache[tuple(drug_ids)] = result["dc_id"]
+            return result["dc_id"]
 
         insert_comb_query = "INSERT INTO drug_combination () VALUES ();"
         cursor.execute(insert_comb_query)
@@ -72,8 +74,7 @@ class DrugCombRepo(GenericRepo):
             INSERT INTO drug_comb_drug (dc_id, drug_id) VALUES (%s, %s);
         """
         cursor.executemany(
-            insert_drug_query,
-            [(new_dc_id, drug_id) for drug_id in drug_ids]
+            insert_drug_query, [(new_dc_id, drug_id) for drug_id in drug_ids]
         )
         self.drugcomb_cache[tuple(drug_ids)] = new_dc_id
         return new_dc_id

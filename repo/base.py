@@ -22,6 +22,7 @@ def sql_op(method):
             raise e
         finally:
             cursor.close()
+
     return wrapper
 
 
@@ -42,7 +43,7 @@ def sql_insert_op(method):
                 # Duplicate entry, ignore
                 return True
             raise
-        except Exception as e:
+        except Exception:
             conn.rollback()
             raise
         finally:

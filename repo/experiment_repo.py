@@ -141,13 +141,16 @@ class ExperimentRepo(GenericRepo):
                 INSERT INTO experiment (dc_id, cell_line_id, classification_id, source_id, experiment_hash)
                 VALUES (%s, %s, %s, %s, %s);
             """
-            cursor.execute(insert_exp_query, (
-                exp.dc_id,
-                exp.cell_line_id,
-                exp.experiment_classification_id,
-                exp.experiment_source_id,
-                exp_hash
-            ))
+            cursor.execute(
+                insert_exp_query,
+                (
+                    exp.dc_id,
+                    exp.cell_line_id,
+                    exp.experiment_classification_id,
+                    exp.experiment_source_id,
+                    exp_hash,
+                ),
+            )
             exp_id = cursor.lastrowid
 
         except IntegrityError as ie:
@@ -162,7 +165,9 @@ class ExperimentRepo(GenericRepo):
             cursor.execute(select_query, (exp_hash,))
             result = cursor.fetchone()
             if not result:
-                raise RuntimeError("Failed to retrieve existing experiment after duplicate entry error.")
+                raise RuntimeError(
+                    "Failed to retrieve existing experiment after duplicate entry error."
+                )
             exp_id = result[0]
 
         # Insert scores
@@ -172,7 +177,7 @@ class ExperimentRepo(GenericRepo):
         """
         cursor.executemany(
             insert_score_query,
-            [(exp_id, score.score_id, score.score_value) for score in exp.scores]
+            [(exp_id, score.score_id, score.score_value) for score in exp.scores],
         )
 
         # Cache result
