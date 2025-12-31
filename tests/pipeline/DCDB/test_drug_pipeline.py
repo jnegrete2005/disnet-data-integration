@@ -1,15 +1,16 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+from domain.models import Drug, ForeignMap
+
 # Adjust imports to match your structure
 from pipeline.DCDB.drug_pipeline import (
-    DrugPipeline,
-    DrugNotResolvableError,
+    NOT_FOUND_IN_CHEMBL_CODE,
     NOT_FOUND_IN_DCDB_CODE,
     NOT_FOUND_IN_UNICHEM_CODE,
-    NOT_FOUND_IN_CHEMBL_CODE,
+    DrugNotResolvableError,
+    DrugPipeline,
 )
-from domain.models import Drug, ForeignMap
 
 
 class TestDrugPipeline(unittest.TestCase):
@@ -56,9 +57,9 @@ class TestDrugPipeline(unittest.TestCase):
             }
         ]
 
-        # --- Run ---
-        result_set = self.pipeline.run(["Aspirin"])
-        self.pipeline.run(["Aspirin"])  # Run twice to test caching
+        # --- Fetch ---
+        result_set = self.pipeline.fetch(["Aspirin"])
+        self.pipeline.fetch(["Aspirin"])  # Run twice to test caching
 
         # --- Assertions ---
         # 1. APIs
@@ -68,19 +69,23 @@ class TestDrugPipeline(unittest.TestCase):
             molecule_chembl_id=chembl_id
         )
 
-        # 2. Repo Interactions (Using self.drug_repo)
+        # --- Persist ---
+        self.pipeline.persist(result_set)
+
+        # Repo Interactions (Using self.drug_repo)
         self.drug_repo.get_or_create_raw_drug.assert_called_once()
         self.drug_repo.get_or_create_chembl_drug.assert_called_once()
         self.drug_repo.map_foreign_to_chembl.assert_called_once()
 
-        # Check the mapping object passed to the repo
+        # 2. Check the mapping object passed to the repo
         mapping_arg = self.drug_repo.map_foreign_to_chembl.call_args[0][0]
         self.assertIsInstance(mapping_arg, ForeignMap)
         self.assertEqual(mapping_arg.foreign_id, "12345")
         self.assertEqual(mapping_arg.chembl_id, chembl_id)
 
         # 3. Result
-        result_drug = list(result_set)[0]
+        result_drug = result_set[0].chembl_drug
+        self.assertIsNotNone(result_drug)
         self.assertEqual(result_drug.drug_id, chembl_id)
 
     def test_run_not_found_in_unichem(self):
@@ -95,15 +100,10 @@ class TestDrugPipeline(unittest.TestCase):
 
         # --- Run ---
         with self.assertRaises(DrugNotResolvableError) as cm:
-            self.pipeline.run(["RareDrug"])
+            result_set = self.pipeline.fetch(["RareDrug"])
 
         # --- Assertions ---
         self.assertEqual(cm.exception.code, NOT_FOUND_IN_UNICHEM_CODE)
-        self.drug_repo.get_or_create_raw_drug.assert_called_once()
-
-        # Ensure ChEMBL steps are skipped
-        self.drug_repo.get_or_create_chembl_drug.assert_not_called()
-        self.drug_repo.map_foreign_to_chembl.assert_not_called()
 
     def test_run_handles_suffix_cleaning(self):
         """
@@ -115,10 +115,10 @@ class TestDrugPipeline(unittest.TestCase):
         self.unichem_api.get_compound_mappings.return_value = (None, None)
 
         with self.assertRaises(DrugNotResolvableError):
-            self.pipeline.run(["Paracetamol (approved)"])
+            self.pipeline.fetch(["Paracetamol (approved)"])
             self.dcdb_api.get_drug_info.assert_called_with("Paracetamol")
 
-            self.pipeline.run(["Paracetamol(approved)"])
+            self.pipeline.fetch(["Paracetamol(approved)"])
             self.dcdb_api.get_drug_info.assert_called_with("Paracetamol")
 
     def test_error_drug_not_in_dcdb(self):
@@ -128,7 +128,7 @@ class TestDrugPipeline(unittest.TestCase):
         self.dcdb_api.get_drug_info.return_value = None
 
         with self.assertRaises(DrugNotResolvableError) as cm:
-            self.pipeline.run(["GhostDrug"])
+            self.pipeline.fetch(["GhostDrug"])
 
         self.assertEqual(cm.exception.code, NOT_FOUND_IN_DCDB_CODE)
 
@@ -147,6 +147,7 @@ class TestDrugPipeline(unittest.TestCase):
         mock_chembl_client.molecule.filter.return_value.only.return_value = []
 
         with self.assertRaises(DrugNotResolvableError) as error:
-            self.pipeline.run(["X"])
+            self.pipeline.fetch(["X"])
 
+        self.assertEqual(error.exception.code, NOT_FOUND_IN_CHEMBL_CODE)
         self.assertEqual(error.exception.code, NOT_FOUND_IN_CHEMBL_CODE)

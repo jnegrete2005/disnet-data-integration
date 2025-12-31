@@ -1,11 +1,11 @@
 import unittest
 from unittest.mock import MagicMock
 
+from domain.models import CELLOSAURUS_DISNET_SOURCE_ID, CellLine, Disease
 from pipeline.DCDB.cell_line_pipeline import (
     CellLineDiseasePipeline,
     CellLineNotResolvableError,
 )
-from domain.models import CellLine, Disease, CELLOSAURUS_DISNET_SOURCE_ID
 
 
 class TestCellLineDiseasePipeline(unittest.TestCase):
@@ -30,12 +30,15 @@ class TestCellLineDiseasePipeline(unittest.TestCase):
         # Inject mocked repo
         self.pipeline.cell_line_repo = self.cell_line_repo
 
-    def test_run_successful_pipeline(self):
+    def test_run_successful(self):
+        """Test the fetch method for a successful retrieval of cell line and disease info."""
         self.dcdb_api.get_cell_line_info.return_value = ("CVCL_1059", "Skin")
         self.cellosaurus_api.get_cell_line_disease.return_value = "NCIT_C1234"
         self.umls_api.ncit_to_umls_cui.return_value = ("C0001234", "Melanoma")
 
-        cell_line = self.pipeline.run("A2058")
+        cell_line_fetched = self.pipeline.fetch("A2058")
+        cell_line = cell_line_fetched.cell_line
+        disease = cell_line_fetched.disease
 
         self.assertIsInstance(cell_line, CellLine)
         self.assertEqual(cell_line.cell_line_id, "CVCL_1059")
@@ -44,32 +47,31 @@ class TestCellLineDiseasePipeline(unittest.TestCase):
         self.assertEqual(cell_line.source_id, CELLOSAURUS_DISNET_SOURCE_ID)
 
         # Disease inserted
-        self.cell_line_repo.add_disease.assert_called_once()
-        disease_arg = self.cell_line_repo.add_disease.call_args[0][0]
-        self.assertIsInstance(disease_arg, Disease)
-        self.assertEqual(disease_arg.umls_cui, "C0001234")
+        self.assertIsInstance(disease, Disease)
+        self.assertEqual(disease.umls_cui, "C0001234")
 
-        # Cell line inserted
+        # Run persist
+        self.pipeline.persist(cell_line_fetched)
+        self.cell_line_repo.add_disease.assert_called_once_with(disease)
         self.cell_line_repo.add_cell_line.assert_called_once_with(cell_line)
 
-    def test_run_no_cell_line_found(self):
+    def test_fetch_no_cell_line_found(self):
         self.dcdb_api.get_cell_line_info.return_value = (None, None)
 
         with self.assertRaises(CellLineNotResolvableError):
-            self.pipeline.run("UNKNOWN_LINE")
-
-        self.cell_line_repo.add_disease.assert_not_called()
-        self.cell_line_repo.add_cell_line.assert_not_called()
+            self.pipeline.fetch("UNKNOWN_LINE")
 
     def test_run_cell_line_without_disease(self):
         self.dcdb_api.get_cell_line_info.return_value = ("CVCL_0001", "Tissue_X")
         self.cellosaurus_api.get_cell_line_disease.return_value = None
 
-        cell_line = self.pipeline.run("TEST_LINE")
+        cell_line_fetched = self.pipeline.fetch("TEST_LINE")
 
+        cell_line = cell_line_fetched.cell_line
         self.assertIsInstance(cell_line, CellLine)
         self.assertIsNone(cell_line.disease_id)
 
+        self.pipeline.persist(cell_line_fetched)
         self.cell_line_repo.add_disease.assert_not_called()
         self.cell_line_repo.add_cell_line.assert_called_once()
 
@@ -78,11 +80,13 @@ class TestCellLineDiseasePipeline(unittest.TestCase):
         self.cellosaurus_api.get_cell_line_disease.return_value = "NCIT_UNKNOWN"
         self.umls_api.ncit_to_umls_cui.return_value = (None, None)
 
-        cell_line = self.pipeline.run("LINE_X")
+        cell_line_fetched = self.pipeline.fetch("LINE_X")
+        cell_line = cell_line_fetched.cell_line
 
         self.assertIsInstance(cell_line, CellLine)
         self.assertIsNone(cell_line.disease_id)
 
+        self.pipeline.persist(cell_line_fetched)
         self.cell_line_repo.add_disease.assert_not_called()
         self.cell_line_repo.add_cell_line.assert_called_once()
 
@@ -90,7 +94,7 @@ class TestCellLineDiseasePipeline(unittest.TestCase):
         self.dcdb_api.get_cell_line_info.return_value = ("CVCL_SEQ", "Tissue_SEQ")
         self.cellosaurus_api.get_cell_line_disease.return_value = None
 
-        self.pipeline.run("SEQ_LINE")
+        self.pipeline.fetch("SEQ_LINE")
 
         self.dcdb_api.get_cell_line_info.assert_called_once_with("SEQ_LINE")
         self.cellosaurus_api.get_cell_line_disease.assert_called_once_with("CVCL_SEQ")
