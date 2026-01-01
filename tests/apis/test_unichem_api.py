@@ -31,7 +31,7 @@ class TestUniChemAPIUnit(unittest.TestCase):
         self.assertEqual(inchi_key, "ABCDEF-GHIJKL-MNOPQR")
 
         mock_post.assert_called_once_with(
-            "https://www.ebi.ac.uk/unichem/api/v1/compounds/",
+            "https://www.ebi.ac.uk/unichem/api/v1/compounds",
             json={"compound": "3385", "sourceID": 22, "type": "sourceID"},
         )
 

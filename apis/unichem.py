@@ -8,7 +8,7 @@ class UniChemAPI(APIInterface):
         super().__init__(base_url="https://www.ebi.ac.uk/unichem/api/v1/")
 
     def get_compound_mappings(self, compound: str) -> tuple[str | None, str | None]:
-        endpoint = "compounds/"
+        endpoint = "compounds"
         url = f"{self.base_url}{endpoint}"
         body = {
             "compound": compound,
@@ -23,9 +23,7 @@ class UniChemAPI(APIInterface):
         if not data.get("compounds"):
             return None, None
 
-        compound_data = data["compounds"][
-            0
-        ]  # Only one compound expected since looking by ID
+        compound_data = data["compounds"][0]  # Only one compound expected since looking by ID
         inchi_key = compound_data.get("standardInchiKey")
 
         chembl_id = None
