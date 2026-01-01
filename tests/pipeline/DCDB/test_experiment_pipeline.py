@@ -5,9 +5,7 @@ from domain.models import Experiment, Score
 from infraestructure.database import DisnetManager
 
 # Adjust imports based on your actual file structure
-from pipeline.DCDB.experiment_pipeline import (
-    ExperimentPipeline,
-)
+from pipeline.DCDB.experiment_pipeline import ExperimentPipeline
 from repo.drugcomb_repo import DrugCombRepo
 from repo.experiment_repo import ExperimentRepo
 
@@ -46,15 +44,9 @@ class TestExperimentPipeline(unittest.TestCase):
         self.dummy_comb_id = 999
 
         # Setup default return values for IDs to track flow
-        self.mock_drug_comb_repo.get_or_create_combination.return_value = (
-            10  # drug_comb_id
-        )
-        self.mock_experiment_repo.get_or_create_exp_source.return_value = (
-            50  # source_id
-        )
-        self.mock_experiment_repo.get_or_create_experiment.return_value = (
-            100  # experiment_id
-        )
+        self.mock_drug_comb_repo.get_or_create_combination.return_value = 10  # drug_comb_id
+        self.mock_experiment_repo.get_or_create_exp_source.return_value = 50  # source_id
+        self.mock_experiment_repo.get_or_create_experiment.return_value = 100  # experiment_id
 
     def test_run_synergistic_flow(self):
         """
@@ -77,19 +69,13 @@ class TestExperimentPipeline(unittest.TestCase):
 
         # Assert
         # 1. Verify Repositories were called
-        self.mock_drug_comb_repo.get_or_create_combination.assert_called_with(
-            self.dummy_drug_ids
-        )
+        self.mock_drug_comb_repo.get_or_create_combination.assert_called_with(self.dummy_drug_ids)
 
         # 2. Verify Classification logic
-        self.mock_experiment_repo.get_or_create_exp_class.assert_called_with(
-            "Synergistic"
-        )
+        self.mock_experiment_repo.get_or_create_exp_class.assert_called_with("Synergistic")
 
         # 3. Verify Source logic (Hardcoded to DrugCombDB in your code)
-        self.mock_experiment_repo.get_or_create_exp_source.assert_called_with(
-            "DrugCombDB"
-        )
+        self.mock_experiment_repo.get_or_create_exp_source.assert_called_with("DrugCombDB")
 
         # 4. Verify Experiment creation
         # We capture the argument passed to get_or_create_experiment to inspect the object attributes
@@ -98,12 +84,8 @@ class TestExperimentPipeline(unittest.TestCase):
 
         self.assertIsInstance(experiment_obj, Experiment)
         self.assertEqual(experiment_obj.dc_id, 10)  # From drug_comb_repo mock
-        self.assertEqual(
-            experiment_obj.experiment_classification_id, 20
-        )  # From class repo mock
-        self.assertEqual(
-            experiment_obj.experiment_source_id, 50
-        )  # From source repo mock
+        self.assertEqual(experiment_obj.experiment_classification_id, 20)  # From class repo mock
+        self.assertEqual(experiment_obj.experiment_source_id, 50)  # From source repo mock
         self.assertEqual(experiment_obj.cell_line_id, self.dummy_cell_line)
 
         # 5. Verify return value
@@ -127,9 +109,7 @@ class TestExperimentPipeline(unittest.TestCase):
         )
 
         # Assert
-        self.mock_experiment_repo.get_or_create_exp_class.assert_called_with(
-            "Antagonistic"
-        )
+        self.mock_experiment_repo.get_or_create_exp_class.assert_called_with("Antagonistic")
 
     def test_run_additive_flow_logs_warning(self):
         """
@@ -140,11 +120,6 @@ class TestExperimentPipeline(unittest.TestCase):
         drug_names_test = ["Aspirin", "Ibuprofen"]
         combination_id_test = 12345
 
-        # Usamos assertLogs para capturar el logging durante este bloque
-        # Nota: Asegúrate de poner el nombre correcto del logger (normalmente el nombre del módulo)
-        # o pasa el logger object si lo tienes accesible.
-        # Aquí asumo que el logger se llama 'pipeline.experiment_pipeline' o similar,
-        # pero 'None' captura el root logger y sus hijos.
         with self.assertLogs(level="WARNING") as cm:
             self.pipeline.run(
                 drug_ids=["D1", "D2"],
@@ -156,9 +131,7 @@ class TestExperimentPipeline(unittest.TestCase):
             )
 
         # 1. Verificar clasificación
-        self.mock_experiment_repo.get_or_create_exp_class.assert_called_once_with(
-            "Additive"
-        )
+        self.mock_experiment_repo.get_or_create_exp_class.assert_called_once_with("Additive")
 
         # 2. Verificar contenido del Log
         # cm.output es una lista de strings con los mensajes loggeados
