@@ -30,9 +30,9 @@ class CellLineDiseasePipeline(ParallelablePipeline):
     def __init__(
         self,
         db: DisnetManager,
-        dcdb_api: DrugCombDBAPI,
-        cellosaurus_api: CellosaurusAPI,
-        umls_api: UMLSAPI,
+        dcdb_api: DrugCombDBAPI = None,
+        cellosaurus_api: CellosaurusAPI = None,
+        umls_api: UMLSAPI = None,
     ):
         self.cell_line_repo = CellLineRepo(db)
         self.dcdb_api = dcdb_api or DrugCombDBAPI()
@@ -43,16 +43,12 @@ class CellLineDiseasePipeline(ParallelablePipeline):
         # Step 1: Extract the cell line Cellosaurus ID from DrugCombDB
         cellosaurus_accession, tissue = self.dcdb_api.get_cell_line_info(cell_line_name)
         if cellosaurus_accession is None:
-            raise CellLineNotResolvableError(
-                cell_line_name, "not found in DrugCombDB database."
-            )
+            raise CellLineNotResolvableError(cell_line_name, "not found in DrugCombDB database.")
 
         umls_cui = None
 
         # Step 2: Get the cell line's associated disease with the Cellosaurus API
-        ncit_accession = self.cellosaurus_api.get_cell_line_disease(
-            cellosaurus_accession
-        )
+        ncit_accession = self.cellosaurus_api.get_cell_line_disease(cellosaurus_accession)
 
         if ncit_accession is not None:
             # Step 3: Transform the disease ID (NCIt) to UMLS CUI using the UMLS API
@@ -68,9 +64,7 @@ class CellLineDiseasePipeline(ParallelablePipeline):
             tissue=tissue,
             disease_id=umls_cui,
         )
-        return CellLineFetchResult(
-            cell_line=cell_line, disease=disease if umls_cui is not None else None
-        )
+        return CellLineFetchResult(cell_line=cell_line, disease=disease if umls_cui is not None else None)
 
     def persist(self, fetch_result: CellLineFetchResult):
         if fetch_result.disease:

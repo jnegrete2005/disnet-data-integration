@@ -69,8 +69,8 @@ class TestDrugPipeline(unittest.TestCase):
         self.pipeline.persist(result_set)
 
         # Repo Interactions (Using self.drug_repo)
-        self.drug_repo.get_or_create_raw_drug.assert_called_once()
-        self.drug_repo.get_or_create_chembl_drug.assert_called_once()
+        self.drug_repo.add_raw_drug.assert_called_once()
+        self.drug_repo.add_chembl_drug.assert_called_once()
         self.drug_repo.map_foreign_to_chembl.assert_called_once()
 
         # 2. Check the mapping object passed to the repo
