@@ -48,9 +48,7 @@ class DrugPipeline(ParallelablePipeline):
 
             if drug_name in self.drug_cache:
                 cached_drug = self.drug_cache[drug_name]
-                processed_drugs.append(
-                    DrugFetchResult(raw_drug=None, chembl_drug=cached_drug)
-                )
+                processed_drugs.append(DrugFetchResult(raw_drug=None, chembl_drug=cached_drug))
                 continue
 
             processed_drug = self.__fetch_drug_info(drug_name)
@@ -105,10 +103,10 @@ class DrugPipeline(ParallelablePipeline):
         )
 
     def __persist_raw_drug(self, raw_drug: Drug) -> None:
-        self.drug_repo.get_or_create_raw_drug(raw_drug)
+        self.drug_repo.add_raw_drug(raw_drug)
 
     def __persist_chembl_drug(self, raw_drug: Drug | None, chembl_drug: Drug) -> None:
-        self.drug_repo.get_or_create_chembl_drug(chembl_drug)
+        self.drug_repo.add_chembl_drug(chembl_drug)
         if raw_drug is None:
             return
 
