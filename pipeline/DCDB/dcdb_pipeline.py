@@ -8,10 +8,7 @@ from zoneinfo import ZoneInfo
 from apis.dcdb import DrugCombDBAPI
 from infraestructure.database import DisnetManager
 from pipeline.base_pipeline import IntegrationPipeline
-from pipeline.DCDB.cell_line_pipeline import (
-    CellLineDiseasePipeline,
-    CellLineNotResolvableError,
-)
+from pipeline.DCDB.cell_line_pipeline import CellLineDiseasePipeline, CellLineNotResolvableError
 from pipeline.DCDB.drug_pipeline import DrugNotResolvableError, DrugPipeline
 from pipeline.DCDB.experiment_pipeline import ExperimentPipeline
 from pipeline.DCDB.score_pipeline import ScorePipeline
@@ -71,12 +68,10 @@ class DrugCombDBPipeline(IntegrationPipeline):
         self.drug_pipeline = drug_pipeline or DrugPipeline(db)
         self.cell_line_pipeline = cell_line_pipeline or CellLineDiseasePipeline(db)
         self.score_pipeline = score_pipeline or ScorePipeline(db)
-        self.experiment_pipeline = experiment_pipeline or ExperimentPipeline(
-            db, logger=logger
-        )
+        self.experiment_pipeline = experiment_pipeline or ExperimentPipeline(db, logger=logger)
 
     def run(self, start: int = 1, end: int = 2, step: int = 1):
-        last_done = self._load_checkpoint(self.checkpoint_path)
+        last_done = self._load_checkpoint()
         skipped = 0
         failed = 0
         succeeded = 0
@@ -99,9 +94,7 @@ class DrugCombDBPipeline(IntegrationPipeline):
                     continue
 
                 succeeded += 1
-                logger.info(
-                    "Processed drug combination %d -> Experiment ID %d", i, exp_id
-                )
+                logger.info("Processed drug combination %d -> Experiment ID %d", i, exp_id)
 
                 self._save_checkpoint(i)
 
@@ -124,9 +117,7 @@ class DrugCombDBPipeline(IntegrationPipeline):
 
         with ThreadPoolExecutor(max_workers=2) as executor:
             future_drugs = executor.submit(self.drug_pipeline.fetch, drugs)
-            future_cell_line = executor.submit(
-                self.cell_line_pipeline.fetch, drugcomb.cell_line
-            )
+            future_cell_line = executor.submit(self.cell_line_pipeline.fetch, drugcomb.cell_line)
 
             # DRUGS PROCESSING
             try:
@@ -138,9 +129,7 @@ class DrugCombDBPipeline(IntegrationPipeline):
                     e.drug_name,
                     e.reason,
                 )
-                self._audit_skipped(
-                    combination_id=i, stage="drug", entity=e.drug_name, code=e.code
-                )
+                self._audit_skipped(combination_id=i, stage="drug", entity=e.drug_name, code=e.code)
                 return None
             except Exception:
                 raise
@@ -158,7 +147,7 @@ class DrugCombDBPipeline(IntegrationPipeline):
                     combination_id=i,
                     stage="cell_line",
                     entity=e.cell_line_name,
-                    code=e.code,
+                    code=None,
                 )
                 return None
             except Exception:
@@ -206,9 +195,7 @@ class DrugCombDBPipeline(IntegrationPipeline):
     def _save_checkpoint(self, index: int):
         self.checkpoint_path.write_text(str(index))
 
-    def _audit_skipped(
-        self, *, combination_id: int, stage: str, entity: str, code: str
-    ):
+    def _audit_skipped(self, *, combination_id: int, stage: str, entity: str, code: str):
         record = {
             "combination_id": combination_id,
             "stage": stage,
