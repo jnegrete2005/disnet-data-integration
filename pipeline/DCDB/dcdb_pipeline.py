@@ -49,6 +49,7 @@ class DrugCombDBPipeline(IntegrationPipeline):
         db: DisnetManager,
         checkpoint_path: Path = Path("checkpoints/dcdb_pipeline.chkpt"),
         audit_path: Path = Path("audit/skipped_dcdb.jsonl"),
+        log_path: Path = Path("logs/dcdb_pipeline.log"),
         dcdb_api: DrugCombDBAPI = None,
         drug_pipeline: DrugPipeline = None,
         cell_line_pipeline: CellLineDiseasePipeline = None,
@@ -64,11 +65,15 @@ class DrugCombDBPipeline(IntegrationPipeline):
         self.audit_path = audit_path
         self.audit_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Logging path
+        self.log_path = log_path
+        self._setup_file_logger()
+
         # Pipelines
         self.drug_pipeline = drug_pipeline or DrugPipeline(db)
         self.cell_line_pipeline = cell_line_pipeline or CellLineDiseasePipeline(db)
         self.score_pipeline = score_pipeline or ScorePipeline(db)
-        self.experiment_pipeline = experiment_pipeline or ExperimentPipeline(db, logger=logger)
+        self.experiment_pipeline = experiment_pipeline or ExperimentPipeline(db)
 
     def run(self, start: int = 1, end: int = 2, step: int = 1):
         last_done = self._load_checkpoint()
@@ -206,3 +211,19 @@ class DrugCombDBPipeline(IntegrationPipeline):
 
         with self.audit_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
+
+    def _setup_file_logger(self):
+        self.log_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(self.log_path, mode="a", encoding="utf-8")
+
+        file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+
+        root_logger = logging.getLogger()
+        already_has_file_handler = any(
+            isinstance(h, logging.FileHandler) and h.baseFilename == str(self.log_path.resolve())
+            for h in root_logger.handlers
+        )
+
+        if not already_has_file_handler:
+            root_logger.addHandler(file_handler)
+            root_logger.setLevel(logging.INFO)

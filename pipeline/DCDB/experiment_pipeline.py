@@ -7,10 +7,6 @@ from repo.drugcomb_repo import DrugCombRepo
 from repo.experiment_repo import ExperimentRepo
 
 logger = logging.getLogger(__name__)
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
 
 
 class ExperimentPipeline(IntegrationPipeline):
