@@ -33,6 +33,7 @@ class DisnetManager:
             )
         except Error as e:
             print(f"Error de conexión: {e}")
+            raise e
 
     def disconnect(self):
         if self.conn:
