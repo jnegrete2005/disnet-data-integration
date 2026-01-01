@@ -43,9 +43,7 @@ class TestDrugCombDBAPIUnit(unittest.TestCase):
         self.assertAlmostEqual(result.hsa, 5.5369, places=4)
         self.assertAlmostEqual(result.bliss, 6.2566, places=4)
 
-        mock_get.assert_called_once_with(
-            "http://drugcombdb.denglab.org:8888/integration/list/1"
-        )
+        mock_get.assert_called_once_with("http://drugcombdb.denglab.org:8888/integration/list/1")
 
     @patch("apis.dcdb.requests.get")
     def test_get_drug_info_transforms_to_domain_drug(self, mock_get):
@@ -76,9 +74,7 @@ class TestDrugCombDBAPIUnit(unittest.TestCase):
         self.assertEqual(drug.source_id, PUBCHEM_DISNET_SOURCE_ID)
         self.assertEqual(drug.chemical_structure, "C1=NC=NC(=O)N1")
 
-        mock_get.assert_called_once_with(
-            "http://drugcombdb.denglab.org:8888/chemical/info/5-FU"
-        )
+        mock_get.assert_called_once_with("http://drugcombdb.denglab.org:8888/chemical/info/5-FU")
 
     @patch("apis.dcdb.requests.get")
     def test_get_cell_line_info_returns_accession(self, mock_get):
@@ -93,14 +89,14 @@ class TestDrugCombDBAPIUnit(unittest.TestCase):
         mock_response.json.return_value = {
             "code": 200,
             "msg": "success",
-            "data": {"cellosaurus_assession": "CVCL_1059"},
+            "data": {"cellosaurus_assession": "CVCL_1059", "tissue": "skin"},
         }
         mock_get.return_value = mock_response
 
         api = DrugCombDBAPI()
         accession = api.get_cell_line_info("A2058")
 
-        self.assertEqual(accession, "CVCL_1059")
+        self.assertEqual(accession, ("CVCL_1059", "skin"))
 
         mock_get.assert_called_once_with(
             "http://drugcombdb.denglab.org:8888/cellLine/cellName",
