@@ -1,30 +1,35 @@
 from repo.base import sql_op
+from repo.generic_repo import GenericRepo
 
 
-class DrugCombRepo:
+class DrugCombRepo(GenericRepo):
     def __init__(self, db):
-        self.db = db
+        super().__init__(db)
 
-    @sql_op()
+        # Cache for existing drug combination
+        self.drugcomb_cache: dict[tuple[str], int] = {}
+
+    @sql_op
     def __create_drug_combination_table(self, cursor) -> bool:
         create_table_query = """
-        CREATE TABLE IF NOT EXISTS drug_combination (
-            dc_id INT AUTO_INCREMENT PRIMARY KEY
-        );
+            CREATE TABLE IF NOT EXISTS drug_combination (
+                dc_id INT AUTO_INCREMENT PRIMARY KEY
+            );
         """
         cursor.execute(create_table_query)
         return True
 
-    @sql_op()
+    @sql_op
     def __create_drug_comb_drug_table(self, cursor) -> bool:
         create_table_query = """
-        CREATE TABLE IF NOT EXISTS drug_comb_drug (
-            dc_id INT,
-            drug_id VARCHAR(25) CHARACTER SET utf8mb3 NOT NULL,
-            PRIMARY KEY (dc_id, drug_id),
-            FOREIGN KEY (dc_id) REFERENCES drug_combination(dc_id),
-            FOREIGN KEY (drug_id) REFERENCES drug(drug_id)
-        );
+            CREATE TABLE IF NOT EXISTS drug_comb_drug (
+                dc_id INT,
+                drug_id VARCHAR(25) CHARACTER SET utf8mb3 NOT NULL,
+                PRIMARY KEY (dc_id, drug_id),
+                FOREIGN KEY (dc_id) REFERENCES drug_combination(dc_id)
+                    ON DELETE CASCADE ON UPDATE CASCADE,
+                FOREIGN KEY (drug_id) REFERENCES drug(drug_id)
+            );
         """
         cursor.execute(create_table_query)
         return True
@@ -36,9 +41,19 @@ class DrugCombRepo:
             return False
         return True
 
-    @sql_op(returns_bool=False)
-    def get_or_create_combination(self, cursor, drug_ids: list[str]) -> int | None:
-        placeholders = ', '.join(['%s'] * len(drug_ids))
+    # TODO: This function will create a race condition if executed concurrently
+    @sql_op
+    def get_or_create_combination(self, cursor, drug_ids: list[str]) -> int:
+        drug_ids = sorted(set(drug_ids))
+        if len(drug_ids) <= 1:
+            raise ValueError(
+                "At least two unique drug IDs are required to form a combination."
+            )
+
+        if tuple(drug_ids) in self.drugcomb_cache:
+            return self.drugcomb_cache[tuple(drug_ids)]
+
+        placeholders = ", ".join(["%s"] * len(drug_ids))
         select_query = f"""
             SELECT dc_id
             FROM drug_comb_drug
@@ -49,13 +64,17 @@ class DrugCombRepo:
         cursor.execute(select_query, [len(drug_ids), *drug_ids, len(drug_ids)])
         result = cursor.fetchone()
         if result:
-            return result['dc_id']
+            self.drugcomb_cache[tuple(drug_ids)] = result["dc_id"]
+            return result["dc_id"]
+
         insert_comb_query = "INSERT INTO drug_combination () VALUES ();"
         cursor.execute(insert_comb_query)
         new_dc_id = cursor.lastrowid
         insert_drug_query = """
             INSERT INTO drug_comb_drug (dc_id, drug_id) VALUES (%s, %s);
         """
-        for drug_id in drug_ids:
-            cursor.execute(insert_drug_query, (new_dc_id, drug_id))
+        cursor.executemany(
+            insert_drug_query, [(new_dc_id, drug_id) for drug_id in drug_ids]
+        )
+        self.drugcomb_cache[tuple(drug_ids)] = new_dc_id
         return new_dc_id
