@@ -1,4 +1,5 @@
 import sys
+from time import time
 
 from infraestructure.database import DisnetManager
 from pipeline.DCDB.dcdb_pipeline import DrugCombDBPipeline
@@ -18,12 +19,15 @@ def create_tables(db: DisnetManager):
 
 
 def integrate_dcdb(start: int = 1, end: int = 2, step: int = 1):
-    db = DisnetManager()
+    db = DisnetManager(test=True)
     db.connect()
     create_tables(db)
 
+    start_time = time()
     pipeline = DrugCombDBPipeline(db)
     pipeline.run(start=start, end=end, step=step)
+    end_time = time()
+    print(f"DCDB Integration Time: {end_time - start_time} seconds")
     db.disconnect()
 
 
