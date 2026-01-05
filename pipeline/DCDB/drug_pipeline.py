@@ -32,12 +32,19 @@ class DrugPipeline(ParallelablePipeline):
     def __init__(
         self,
         db: DisnetManager,
+        chembl_source_id: int,
+        pubchem_source_id: int,
         dcdb_api: DrugCombDBAPI = DrugCombDBAPI(),
         unichem_api: UniChemAPI = UniChemAPI(),
     ):
         self.drug_repo = DrugRepo(db)
+
         self.dcdb_api = dcdb_api
         self.unichem_api = unichem_api
+
+        self.chembl_source_id = chembl_source_id
+        self.pubchem_source_id = pubchem_source_id
+
         self.drug_cache: dict[str, Drug] = {}
 
     def fetch(self, drug_combination: list[str]) -> list[DrugFetchResult]:
@@ -58,7 +65,7 @@ class DrugPipeline(ParallelablePipeline):
 
     def __fetch_drug_info(self, drug_name: str) -> DrugFetchResult:
         # Step 1: Extract the drug's data from DrugCombDB
-        raw_drug = self.dcdb_api.get_drug_info(drug_name)
+        raw_drug = self.dcdb_api.get_drug_info(drug_name, self.pubchem_source_id)
         if not raw_drug:
             raise DrugNotResolvableError(drug_name, NOT_FOUND_IN_DCDB_CODE)
 
@@ -83,8 +90,7 @@ class DrugPipeline(ParallelablePipeline):
 
             self.__persist_chembl_drug(result.raw_drug, result.chembl_drug)
 
-    @staticmethod
-    def __get_drug_info_from_chembl(chembl_id: str) -> Drug | None:
+    def __get_drug_info_from_chembl(self, chembl_id: str) -> Drug | None:
         result = new_client.molecule.filter(molecule_chembl_id=chembl_id).only(
             "molecule_chembl_id", "molecule_structures", "molecule_type", "pref_name"
         )
@@ -96,7 +102,7 @@ class DrugPipeline(ParallelablePipeline):
         return Drug(
             drug_id=result["molecule_chembl_id"],
             drug_name=result["pref_name"],
-            source_id=1,  # ChEMBL source ID in DISNET
+            source_id=self.chembl_source_id,
             molecular_type=result["molecule_type"],
             chemical_structure=result["molecule_structures"]["canonical_smiles"],
             inchi_key=result["molecule_structures"]["standard_inchi_key"],

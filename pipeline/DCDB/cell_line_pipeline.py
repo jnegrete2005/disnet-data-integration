@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from apis.cellosaurus import CellosaurusAPI
 from apis.dcdb import DrugCombDBAPI
 from apis.umls import UMLSAPI
-from domain.models import CELLOSAURUS_DISNET_SOURCE_ID, CellLine, Disease
+from domain.models import CellLine, Disease
 from infraestructure.database import DisnetManager
 from pipeline.base_pipeline import ParallelablePipeline
 from repo.cell_line_repo import CellLineRepo
@@ -30,12 +30,14 @@ class CellLineDiseasePipeline(ParallelablePipeline):
     def __init__(
         self,
         db: DisnetManager,
+        cellosaurus_source_id: int,
         dcdb_api: DrugCombDBAPI = None,
         cellosaurus_api: CellosaurusAPI = None,
         umls_api: UMLSAPI = None,
     ):
         self.cell_line_repo = CellLineRepo(db)
         self.dcdb_api = dcdb_api or DrugCombDBAPI()
+        self.cellosaurus_source_id = cellosaurus_source_id
         self.cellosaurus_api = cellosaurus_api or CellosaurusAPI()
         self.umls_api = umls_api or UMLSAPI()
 
@@ -59,7 +61,7 @@ class CellLineDiseasePipeline(ParallelablePipeline):
 
         cell_line = CellLine(
             cell_line_id=cellosaurus_accession,
-            source_id=CELLOSAURUS_DISNET_SOURCE_ID,
+            source_id=self.cellosaurus_source_id,
             name=cell_line_name,
             tissue=tissue,
             disease_id=umls_cui,

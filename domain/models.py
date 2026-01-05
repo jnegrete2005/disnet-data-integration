@@ -13,11 +13,7 @@ class CellLine:
     tissue: str = None
 
     def __eq__(self, value: "CellLine"):
-        return (
-            self.cell_line_id == value.cell_line_id
-            and self.name == value.name
-            and self.tissue == value.tissue
-        )
+        return self.cell_line_id == value.cell_line_id and self.name == value.name and self.tissue == value.tissue
 
     def __hash__(self):
         return hash((self.cell_line_id, self.name, self.tissue))
@@ -59,8 +55,6 @@ class Disease:
 
 # Drug-related entities
 UNKNOWN_SOURCE_ID = -1
-PUBCHEM_DISNET_SOURCE_ID = 6
-CELLOSAURUS_DISNET_SOURCE_ID = 7
 
 
 @dataclass
@@ -73,11 +67,7 @@ class Drug:
     inchi_key: str | None = None
 
     def __eq__(self, value: "Drug"):
-        return (
-            self.drug_id == value.drug_id
-            and self.drug_name == value.drug_name
-            and self.inchi_key == value.inchi_key
-        )
+        return self.drug_id == value.drug_id and self.drug_name == value.drug_name and self.inchi_key == value.inchi_key
 
     def __hash__(self):
         return hash((self.drug_id, self.drug_name))
@@ -117,9 +107,7 @@ class Experiment:
             "cell_line_id": self.cell_line_id,
             "experiment_classification_id": self.experiment_classification_id,
             "experiment_source_id": self.experiment_source_id,
-            "scores": sorted(
-                [(score.score_id, score.score_value) for score in self.scores]
-            ),
+            "scores": sorted([(score.score_id, score.score_value) for score in self.scores]),
         }
         raw = json.dumps(payload, separators=(",", ":"), sort_keys=True)
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()

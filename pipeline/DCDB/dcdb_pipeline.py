@@ -12,6 +12,7 @@ from pipeline.DCDB.cell_line_pipeline import CellLineDiseasePipeline, CellLineNo
 from pipeline.DCDB.drug_pipeline import DrugNotResolvableError, DrugPipeline
 from pipeline.DCDB.experiment_pipeline import ExperimentPipeline
 from pipeline.DCDB.score_pipeline import ScorePipeline
+from repo.source_repo import SourceRepo
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -50,6 +51,7 @@ class DrugCombDBPipeline(IntegrationPipeline):
         checkpoint_path: Path = Path("checkpoints/dcdb_pipeline.chkpt"),
         audit_path: Path = Path("audit/skipped_dcdb.jsonl"),
         log_path: Path = Path("logs/dcdb_pipeline.log"),
+        source_repo: SourceRepo = None,
         dcdb_api: DrugCombDBAPI = None,
         drug_pipeline: DrugPipeline = None,
         cell_line_pipeline: CellLineDiseasePipeline = None,
@@ -58,6 +60,12 @@ class DrugCombDBPipeline(IntegrationPipeline):
     ):
         self.db = db
         self.dcdb_api = dcdb_api or DrugCombDBAPI()
+
+        # Get necessary sources
+        self.source_repo = source_repo or SourceRepo(db)
+        chembl_source_id = self.source_repo.get_or_create_source("CHEMBL")
+        pubchem_source_id = self.source_repo.get_or_create_source("PubChem")
+        cellosaurus_source_id = self.source_repo.get_or_create_source("Cellosaurus")
 
         # Checkpoints and audit paths
         self.checkpoint_path = checkpoint_path
@@ -70,8 +78,12 @@ class DrugCombDBPipeline(IntegrationPipeline):
         self._setup_file_logger()
 
         # Pipelines
-        self.drug_pipeline = drug_pipeline or DrugPipeline(db)
-        self.cell_line_pipeline = cell_line_pipeline or CellLineDiseasePipeline(db)
+        self.drug_pipeline = drug_pipeline or DrugPipeline(
+            db, chembl_source_id=chembl_source_id, pubchem_source_id=pubchem_source_id
+        )
+        self.cell_line_pipeline = cell_line_pipeline or CellLineDiseasePipeline(
+            db, cellosaurus_source_id=cellosaurus_source_id
+        )
         self.score_pipeline = score_pipeline or ScorePipeline(db)
         self.experiment_pipeline = experiment_pipeline or ExperimentPipeline(db)
 

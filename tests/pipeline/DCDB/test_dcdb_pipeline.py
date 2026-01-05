@@ -21,6 +21,14 @@ class TestDrugCombDBPipeline(unittest.TestCase):
         self.mock_score_pipeline = MagicMock()
         self.mock_experiment_pipeline = MagicMock()
 
+        # Source Repo Mock
+        self.mock_source_repo = MagicMock()
+        self.mock_source_repo.get_or_create_source.side_effect = lambda name: {
+            "CHEMBL": 1,
+            "PubChem": 2,
+            "Cellosaurus": 3,
+        }[name]
+
         # File System Mocks
         self.mock_checkpoint_path = MagicMock()
         self.mock_audit_path = MagicMock()
@@ -30,6 +38,7 @@ class TestDrugCombDBPipeline(unittest.TestCase):
             db=self.mock_db,
             checkpoint_path=self.mock_checkpoint_path,
             audit_path=self.mock_audit_path,
+            source_repo=self.mock_source_repo,
             dcdb_api=self.mock_dcdb_api,
             drug_pipeline=self.mock_drug_pipeline,
             cell_line_pipeline=self.mock_cell_line_pipeline,

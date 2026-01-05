@@ -24,7 +24,13 @@ class TestDrugPipeline(unittest.TestCase):
         self.unichem_api = MagicMock()
 
         # 3. Instantiate pipeline
-        self.pipeline = DrugPipeline(db=self.db, dcdb_api=self.dcdb_api, unichem_api=self.unichem_api)
+        self.pipeline = DrugPipeline(
+            db=self.db,
+            chembl_source_id=1,
+            pubchem_source_id=2,
+            dcdb_api=self.dcdb_api,
+            unichem_api=self.unichem_api,
+        )
 
         # 4. Inject mocked repo (Replacing the real one)
         self.pipeline.drug_repo = self.drug_repo
@@ -61,7 +67,7 @@ class TestDrugPipeline(unittest.TestCase):
 
         # --- Assertions ---
         # 1. APIs
-        self.dcdb_api.get_drug_info.assert_called_with("Aspirin")
+        self.dcdb_api.get_drug_info.assert_called_with("Aspirin", self.pipeline.pubchem_source_id)
         self.unichem_api.get_compound_mappings.assert_called_with("12345")
         mock_chembl_client.molecule.filter.assert_called_with(molecule_chembl_id=chembl_id)
 

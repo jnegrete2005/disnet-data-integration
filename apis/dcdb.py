@@ -1,7 +1,7 @@
 import requests
 
 from apis.api_interface import APIInterface
-from domain.models import PUBCHEM_DISNET_SOURCE_ID, Drug
+from domain.models import Drug
 
 from .schemas.dcdb import DrugCombData, DrugCombDBAPIResponse, DrugData
 
@@ -23,7 +23,7 @@ class DrugCombDBAPI(APIInterface):
 
         return api_response.data
 
-    def get_drug_info(self, drug_name: str) -> Drug:
+    def get_drug_info(self, drug_name: str, pubchem_source_id: int) -> Drug:
         endpoint = f"chemical/info/{drug_name}"
         url = f"{self.base_url}{endpoint}"
         response = requests.get(url)
@@ -39,7 +39,7 @@ class DrugCombDBAPI(APIInterface):
         drug = Drug(
             drug_id=drug_id,
             drug_name=drug_data.drug_name_official,
-            source_id=PUBCHEM_DISNET_SOURCE_ID,
+            source_id=pubchem_source_id,
             chemical_structure=drug_data.smiles_string,
         )
         return drug
