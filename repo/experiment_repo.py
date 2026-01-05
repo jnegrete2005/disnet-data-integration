@@ -164,20 +164,37 @@ class ExperimentRepo(GenericRepo):
             cursor.execute(select_query, (exp_hash,))
             result = cursor.fetchone()
             if not result:
-                raise RuntimeError(
-                    "Failed to retrieve existing experiment after duplicate entry error."
-                )
+                raise RuntimeError("Failed to retrieve existing experiment after duplicate entry error.")
             exp_id = result[0]
 
+            # Check if scores are already inserted
+            check_scores_query = """
+                SELECT COUNT(*) FROM experiment_score
+                WHERE experiment_id = %s;
+            """
+            cursor.execute(check_scores_query, (exp_id,))
+            score_count = cursor.fetchone()[0]
+            if score_count == len(exp.scores):
+                # Scores already inserted, return existing experiment_id
+                self.experiment_cache[exp_hash] = exp_id
+                return exp_id
+
         # Insert scores
+        # Reaching here means either a new experiment was created
+        # or an existing experiment was found but scores need to be inserted/updated
+        # so we will try/except to handle potential duplicates
         insert_score_query = """
             INSERT INTO experiment_score (experiment_id, score_id, score_value)
             VALUES (%s, %s, %s);
         """
-        cursor.executemany(
-            insert_score_query,
-            [(exp_id, score.score_id, score.score_value) for score in exp.scores],
-        )
+        for score_id, score_value in exp.scores.items():
+            try:
+                cursor.execute(insert_score_query, (exp_id, score_id, score_value))
+            except IntegrityError as ie:
+                if ie.errno != ER_DUP_ENTRY:
+                    raise
+                # If duplicate, we skip
+                continue
 
         # Cache result
         self.experiment_cache[exp_hash] = exp_id
