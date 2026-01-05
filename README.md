@@ -28,7 +28,7 @@ DrugCombDB provides different synergy scores for each drug combination. We use t
 ### Main Pipeline
 Finally, we persist all the extracted and transformed data into DISNET, and create the drug_combination, drug_comb_drug, experiment, and experiment_score in DISNET.
 
-## New tables in DISNET
+## New tables in DISNET's Drugslayer
 The following new tables have been created in DISNET to store the drug combination data:
 - **cell_line**: Stores information about cell lines used in experiments.
     - `cell_line_id`: The cellosaurus accession number.
