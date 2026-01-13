@@ -187,7 +187,9 @@ class ExperimentRepo(GenericRepo):
             INSERT INTO experiment_score (experiment_id, score_id, score_value)
             VALUES (%s, %s, %s);
         """
-        for score_id, score_value in exp.scores.items():
+        for score in exp.scores:
+            score_id = score.score_id
+            score_value = score.score_value
             try:
                 cursor.execute(insert_score_query, (exp_id, score_id, score_value))
             except IntegrityError as ie:
