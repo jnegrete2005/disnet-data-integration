@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 from apis.dcdb import DrugCombDBAPI
 from apis.schemas.dcdb import DrugCombData
-from domain.models import PUBCHEM_DISNET_SOURCE_ID, Drug
+from domain.models import Drug
 
 
 class TestDrugCombDBAPIUnit(unittest.TestCase):
@@ -66,12 +66,12 @@ class TestDrugCombDBAPIUnit(unittest.TestCase):
         mock_get.return_value = mock_response
 
         api = DrugCombDBAPI()
-        drug = api.get_drug_info("5-FU")
+        drug = api.get_drug_info("5-FU", 3)
 
         self.assertIsInstance(drug, Drug)
         self.assertEqual(drug.drug_name, "5-fluorouracil")
         self.assertEqual(drug.drug_id, "3385")
-        self.assertEqual(drug.source_id, PUBCHEM_DISNET_SOURCE_ID)
+        self.assertEqual(drug.source_id, 3)
         self.assertEqual(drug.chemical_structure, "C1=NC=NC(=O)N1")
 
         mock_get.assert_called_once_with("http://drugcombdb.denglab.org:8888/chemical/info/5-FU")
