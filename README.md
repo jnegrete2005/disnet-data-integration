@@ -12,7 +12,7 @@ The main objective is the extraction, transformation, and loading (ETL) of drug 
 
 We use their API to extract drug combination data with the following pipeline:
 </br>
-![DCDB ETL](./pictures/DCDB_pipeline.png)
+![DCDB ETL](./imgs/DCDB_pipeline.png)
 
 First, we extract the drug combination data from the DrugCombDB API. Then, we go into three main sub-pipelines:
 
@@ -29,47 +29,9 @@ DrugCombDB provides different synergy scores for each drug combination. We use t
 Finally, we persist all the extracted and transformed data into DISNET, and create the drug_combination, drug_comb_drug, experiment, and experiment_score in DISNET.
 
 ## New tables in DISNET's Drugslayer
-The following new tables have been created in DISNET to store the drug combination data:
-- **cell_line**: Stores information about cell lines used in experiments.
-    - `cell_line_id`: The cellosaurus accession number.
-    - `cell_line_name`: The name of the cell line.
-    - `source_id`: The source database from where the ID comes from. In this case it is always Cellosaurus.
-    - `tissue`: The tissue associated with the cell line.
-    - `disease_id`: The UMLS CUI of the disease associated with the cell line.
-- **drug_raw**: Stores drug information from a source different from ChEMBL. It has the same fields as the existing drug table, but most of the fields are optional.
-    - `drug_id`: The ID of the drug in the source database.
-    - `source_id`: The source database from where the ID comes from. In DrugCombDB's case it is always PubChem.
-    - `drug_name`: The name of the drug.
-    - Other fields are optional and can be filled if the information is available.
-- **foreign_to_chembl**: Maps external drug IDs to ChEMBL IDs.
-    - `drug_id`: The ID of the drug in the source database.
-    - `source_id`: The source database from where the ID comes from.
-    - `chembl_id`: The corresponding ChEMBL ID of the drug.
-- **drug_combination**: Stores information about drug combinations.
-    - `dc_id`: The ID of the drug combination.
-- **drug_comb_drug**: Joins N drugs to a drug combination.
-    - `dc_id`: The `id` from `drug_combination` table.
-    - `drug_id`: The `id` from `drug` table.
-- **experiment_classification**: Stores the classification of experiments based on synergy scores (synergistic, antagonistic, or additive).
-    - `classification_id`: The ID of the classification.
-    - `classification_name`: The name of the classification.
-- **experiment_source**: Stores information about the source of the experiments.
-    - `source_id`: The ID of the source.
-    - `source_name`: The name of the source.
-- **experiment**: Stores information about drug combination experiments.
-    - `experiment_id`: The ID of the experiment.
-    - `dc_id`: The `id` from `drug_combination` table.
-    - `cell_line_id`: The ID from the associated `cell_line`.
-    - `classification_id`: The ID from the associated `experiment_classification`.
-    - `source_id`: The ID from the associated `experiment_source`.
-    - `experiment_hash`: Another key to identify a complete experiment, meaning their drug combination, cell line, classification, source, and all their scores.
-- **experiment_score**: Stores the synergy scores for each experiment.
-    - `experiment_id`: The ID of the associated experiment.
-    - `score_id`: The ID of the score type.
-    - `score_value`: The value of the score.
-- **score**: Stores information about the different types of synergy scores.
-    - `score_id`: The ID of the score type.
-    - `score_name`: The name of the score type.
+We have created new tables in DISNET's Drugslayer to store the drug combination data, as shown in the following diagram:
+</br>
+![Drugslayer EER Model](./imgs/EER_model.jpeg)
 
 ## Future work
 We have successfully integrated drug combination data from DrugCombDB. However, DrugCombDb has over 500k drug combinations, so we have yet to plan how to integrate all this data efficiently.
