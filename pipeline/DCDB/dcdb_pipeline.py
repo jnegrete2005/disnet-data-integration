@@ -148,7 +148,8 @@ class DrugCombDBPipeline(IntegrationPipeline):
                 )
                 self._audit_skipped(combination_id=i, stage="drug", entity=e.drug_name, code=e.code)
                 return None
-            except Exception:
+            except Exception as e:
+                self._audit_skipped(combination_id=i, stage="drug", message=str(e))
                 raise
 
             # CELL LINE AND DISEASE PROCESSING
@@ -167,7 +168,8 @@ class DrugCombDBPipeline(IntegrationPipeline):
                     code=None,
                 )
                 return None
-            except Exception:
+            except Exception as e:
+                self._audit_skipped(combination_id=i, stage="cell_line", message=str(e))
                 raise
 
         # Persist fetched data
@@ -212,14 +214,24 @@ class DrugCombDBPipeline(IntegrationPipeline):
     def _save_checkpoint(self, index: int):
         self.checkpoint_path.write_text(str(index))
 
-    def _audit_skipped(self, *, combination_id: int, stage: str, entity: str, code: str):
-        record = {
-            "combination_id": combination_id,
-            "stage": stage,
-            "entity": entity,
-            "code": code,
-            "timestamp": datetime.now(ZoneInfo("UTC")).isoformat(),
-        }
+    def _audit_skipped(
+        self, *, combination_id: int, stage: str, entity: str = None, code: str = None, message: str = None
+    ):
+        if message:
+            record = {
+                "combination_id": combination_id,
+                "stage": stage,
+                "message": message,
+                "timestamp": datetime.now(ZoneInfo("UTC")).isoformat(),
+            }
+        else:
+            record = {
+                "combination_id": combination_id,
+                "stage": stage,
+                "entity": entity,
+                "code": code,
+                "timestamp": datetime.now(ZoneInfo("UTC")).isoformat(),
+            }
 
         with self.audit_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
