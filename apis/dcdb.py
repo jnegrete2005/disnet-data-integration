@@ -44,7 +44,16 @@ class DrugCombDBAPI(APIInterface):
         )
         return drug
 
-    def get_cell_line_info(self, cell_line_name: str) -> str | None:
+    def get_cell_line_info(self, cell_line_name: str) -> tuple[str | None, str | None]:
+        """
+        Get the Cellosaurus accession and tissue for a given cell line name.
+
+        :param cell_line_name: Name of the cell line.
+        :type cell_line_name: str
+
+        :return: A tuple containing the Cellosaurus accession and tissue.
+        :rtype: tuple[str | None, str | None]
+        """
         endpoint = "cellLine/cellName"
         url = f"{self.base_url}{endpoint}"
         params = {"cellName": cell_line_name}
