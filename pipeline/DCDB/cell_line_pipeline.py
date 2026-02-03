@@ -85,6 +85,9 @@ class CellLineDiseasePipeline(ParallelablePipeline):
         return result
 
     def persist(self, fetch_result: CellLineFetchResult):
+        if fetch_result.cached:
+            return
+
         if fetch_result.disease:
             self.cell_line_repo.add_disease(fetch_result.disease)
         self.cell_line_repo.add_cell_line(fetch_result.cell_line)
