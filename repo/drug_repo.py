@@ -6,9 +6,6 @@ from repo.generic_repo import GenericRepo
 class DrugRepo(GenericRepo):
     def __init__(self, db):
         super().__init__(db)
-        self.raw_drug_cache: set[Drug] = set()
-        self.drug_cache: set[Drug] = set()
-        self.foreign_map_cache: set[ForeignMap] = set()
 
     @sql_op
     def __create_drug_raw_table(self, cursor) -> bool:
@@ -53,9 +50,6 @@ class DrugRepo(GenericRepo):
         """
         Insert a raw drug into the DB. If duplicate key, do nothing.
         """
-        if drug in self.raw_drug_cache:
-            return True
-
         insert_query = """
             INSERT INTO drug_raw (drug_id, source_id, drug_name, molecular_type, chemical_structure, inchi_key)
             VALUES (%s, %s, %s, %s, %s, %s);
@@ -71,15 +65,11 @@ class DrugRepo(GenericRepo):
                 drug.inchi_key,
             ),
         )
-        self.raw_drug_cache.add(drug)
 
         return drug.drug_id
 
     @sql_insert_op
     def add_chembl_drug(self, cursor, drug: Drug) -> bool:
-        if drug in self.drug_cache:
-            return True
-
         insert_query = """
             INSERT INTO drug (drug_id, source_id, drug_name, molecular_type, chemical_structure, inchi_key)
             VALUES (%s, %s, %s, %s, %s, %s);
@@ -95,15 +85,11 @@ class DrugRepo(GenericRepo):
                 drug.inchi_key,
             ),
         )
-        self.drug_cache.add(drug)
 
         return True
 
     @sql_insert_op
     def map_foreign_to_chembl(self, cursor, mapping: ForeignMap) -> bool:
-        if mapping in self.foreign_map_cache:
-            return True
-
         insert_query = """
             INSERT INTO foreign_to_chembl (foreign_id, foreign_source_id, chembl_id)
             VALUES (%s, %s, %s);
@@ -112,6 +98,5 @@ class DrugRepo(GenericRepo):
             insert_query,
             (mapping.foreign_id, mapping.foreign_source_id, mapping.chembl_id),
         )
-        self.foreign_map_cache.add(mapping)
 
         return True

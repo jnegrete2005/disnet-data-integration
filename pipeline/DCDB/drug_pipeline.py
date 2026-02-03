@@ -1,9 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from chembl_webresource_client.new_client import new_client
 
 from apis.dcdb import DrugCombDBAPI
 from apis.unichem import UniChemAPI
+from caching.cache import CacheDict
 from domain.models import Drug
 from infraestructure.database import DisnetManager
 from pipeline.base_pipeline import ParallelablePipeline
@@ -14,6 +15,7 @@ from repo.drug_repo import DrugRepo, ForeignMap
 class DrugFetchResult:
     raw_drug: Drug | None
     chembl_drug: Drug
+    cached: bool = False
 
 
 class DrugPipeline(ParallelablePipeline):
@@ -45,7 +47,8 @@ class DrugPipeline(ParallelablePipeline):
         self.chembl_source_id = chembl_source_id
         self.pubchem_source_id = pubchem_source_id
 
-        self.drug_cache: dict[str, Drug] = {}
+        self.drug_cache: CacheDict[str, DrugFetchResult] = CacheDict()
+        self.error_cache: CacheDict[str, DrugNotResolvableError] = CacheDict()
 
     def fetch(self, drug_combination: list[str]) -> list[DrugFetchResult]:
         processed_drugs: list[DrugFetchResult] = []
@@ -53,38 +56,48 @@ class DrugPipeline(ParallelablePipeline):
             if "(approved)" in drug_name:
                 drug_name = drug_name.replace("(approved)", "").strip()
 
-            if drug_name in self.drug_cache:
-                cached_drug = self.drug_cache[drug_name]
-                processed_drugs.append(DrugFetchResult(raw_drug=None, chembl_drug=cached_drug))
-                continue
-
             processed_drug = self.__fetch_drug_info(drug_name)
             processed_drugs.append(processed_drug)
-            self.drug_cache[drug_name] = processed_drug.chembl_drug
         return processed_drugs
 
     def __fetch_drug_info(self, drug_name: str) -> DrugFetchResult:
+        if drug_name in self.drug_cache:
+            return self.drug_cache[drug_name]
+        elif drug_name in self.error_cache:
+            raise self.error_cache[drug_name]
+
         # Step 1: Extract the drug's data from DrugCombDB
         raw_drug = self.dcdb_api.get_drug_info(drug_name, self.pubchem_source_id)
         if not raw_drug:
-            raise DrugNotResolvableError(drug_name, NOT_FOUND_IN_DCDB_CODE)
+            error = DrugNotResolvableError(drug_name, NOT_FOUND_IN_DCDB_CODE)
+            self.error_cache[drug_name] = error
+            raise error
 
         # Step 2: Translate PubChem ID to CHEMBL ID using UniChem API
         chembl_id, inchi_key = self.unichem_api.get_compound_mappings(raw_drug.drug_id)
         raw_drug.inchi_key = inchi_key
 
         if not chembl_id:
-            raise DrugNotResolvableError(drug_name, NOT_FOUND_IN_UNICHEM_CODE)
+            error = DrugNotResolvableError(drug_name, NOT_FOUND_IN_UNICHEM_CODE)
+            self.error_cache[drug_name] = error
+            raise error
 
         # Step 3: Get the drug's data from ChEMBL
         chembl_drug = self.__get_drug_info_from_chembl(chembl_id)
         if not chembl_drug:
-            raise DrugNotResolvableError(chembl_id, NOT_FOUND_IN_CHEMBL_CODE)
+            error = DrugNotResolvableError(chembl_id, NOT_FOUND_IN_CHEMBL_CODE)
+            self.error_cache[drug_name] = error
+            raise error
 
-        return DrugFetchResult(raw_drug=raw_drug, chembl_drug=chembl_drug)
+        result = DrugFetchResult(raw_drug=raw_drug, chembl_drug=chembl_drug)
+        self.drug_cache[drug_name] = replace(result, cached=True)
+        return result
 
     def persist(self, fetch_results: list[DrugFetchResult]) -> None:
         for result in fetch_results:
+            if result.cached:
+                continue
+
             if result.raw_drug:
                 self.__persist_raw_drug(result.raw_drug)
 

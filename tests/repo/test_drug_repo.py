@@ -36,9 +36,7 @@ class TestDrugRepo(unittest.TestCase):
             inchi_key="TESTINCHIKEY",
         )
 
-        cls.raw_drug = Drug(
-            drug_id="RAW0001", drug_name="Raw Drug", source_id=cls.foreign_source_id
-        )
+        cls.raw_drug = Drug(drug_id="RAW0001", drug_name="Raw Drug", source_id=cls.foreign_source_id)
 
         cls.mapping = ForeignMap(
             foreign_id="RAW0001",
@@ -74,9 +72,7 @@ class TestDrugRepo(unittest.TestCase):
 
         # Check if it exists
         cursor = self.db.get_cursor()
-        cursor.execute(
-            "SELECT foreign_id, chembl_id, foreign_source_id FROM foreign_to_chembl"
-        )
+        cursor.execute("SELECT foreign_id, chembl_id, foreign_source_id FROM foreign_to_chembl")
         fetched_mapping = cursor.fetchone()
         cursor.close()
         self.assertEqual(
@@ -87,26 +83,6 @@ class TestDrugRepo(unittest.TestCase):
                 self.mapping.foreign_source_id,
             ),
         )
-
-    def test_cache_mechanism(self):
-        # Add everything again to test cache
-        self.repo.add_chembl_drug(self.chembl_drug)
-        self.repo.add_raw_drug(self.raw_drug)
-        self.repo.map_foreign_to_chembl(self.mapping)
-
-        # There should only be one entry in each table
-        cursor = self.db.get_cursor()
-        cursor.execute("SELECT COUNT(*) FROM drug")
-        chembl_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM drug_raw")
-        raw_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM foreign_to_chembl")
-        mapping_count = cursor.fetchone()[0]
-        cursor.close()
-
-        self.assertEqual(chembl_count, 1)
-        self.assertEqual(raw_count, 1)
-        self.assertEqual(mapping_count, 1)
 
     @classmethod
     def tearDownClass(cls):

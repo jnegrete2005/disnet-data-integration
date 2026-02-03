@@ -147,3 +147,40 @@ class TestDrugPipeline(unittest.TestCase):
 
         self.assertEqual(error.exception.code, NOT_FOUND_IN_CHEMBL_CODE)
         self.assertEqual(error.exception.code, NOT_FOUND_IN_CHEMBL_CODE)
+
+    @patch("pipeline.DCDB.drug_pipeline.new_client")
+    def test_caching_mechanism(self, mock_chembl_client):
+        """
+        Test that repeated fetches for the same drug use the cache.
+        """
+        # Setup
+        raw_drug = Drug(drug_id="123", source_id=2, drug_name="CachedDrug")
+        chembl_id = "CHEMBL123"
+        inchi_key = "KEY123"
+
+        self.dcdb_api.get_drug_info.return_value = raw_drug
+        self.unichem_api.get_compound_mappings.return_value = (chembl_id, inchi_key)
+
+        mock_chembl_client.molecule.filter.return_value.only.return_value = [
+            {
+                "molecule_chembl_id": chembl_id,
+                "pref_name": "CachedDrug",
+                "molecule_type": "Small molecule",
+                "molecule_structures": {
+                    "canonical_smiles": "SMILES",
+                    "standard_inchi_key": inchi_key,
+                },
+            }
+        ]
+
+        # First fetch
+        result1 = self.pipeline.fetch(["CachedDrug"])
+        # Second fetch (should hit cache)
+        result2 = self.pipeline.fetch(["CachedDrug"])
+
+        # Assertions
+        self.assertEqual(result1[0].chembl_drug, result2[0].chembl_drug)
+        self.assertTrue(result2[0].cached)
+        self.dcdb_api.get_drug_info.assert_called_once_with("CachedDrug", self.pipeline.pubchem_source_id)
+        self.unichem_api.get_compound_mappings.assert_called_once_with("123")
+        mock_chembl_client.molecule.filter.assert_called_once_with(molecule_chembl_id=chembl_id)
