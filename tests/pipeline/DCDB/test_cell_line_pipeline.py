@@ -97,3 +97,30 @@ class TestCellLineDiseasePipeline(unittest.TestCase):
         self.dcdb_api.get_cell_line_info.assert_called_once_with("SEQ_LINE")
         self.cellosaurus_api.get_cell_line_disease.assert_called_once_with("CVCL_SEQ")
         self.umls_api.ncit_to_umls_cui.assert_not_called()
+
+    def test_caching_mechanism(self):
+        self.dcdb_api.get_cell_line_info.return_value = ("CVCL_CACHE", "Tissue_CACHE")
+        self.cellosaurus_api.get_cell_line_disease.return_value = "NCIT_CACHE"
+        self.umls_api.ncit_to_umls_cui.return_value = ("C000CACHE", "Disease_CACHE")
+
+        # First fetch - should call APIs
+        first = self.pipeline.fetch("CACHE_LINE")
+        self.dcdb_api.get_cell_line_info.assert_called_once_with("CACHE_LINE")
+        self.cellosaurus_api.get_cell_line_disease.assert_called_once_with("CVCL_CACHE")
+        self.umls_api.ncit_to_umls_cui.assert_called_once_with("NCIT_CACHE")
+        self.assertFalse(first.cached)
+
+        # Reset mocks
+        self.dcdb_api.get_cell_line_info.reset_mock()
+        self.cellosaurus_api.get_cell_line_disease.reset_mock()
+        self.umls_api.ncit_to_umls_cui.reset_mock()
+
+        # Second fetch - should use cache, no API calls
+        second = self.pipeline.fetch("CACHE_LINE")
+        self.dcdb_api.get_cell_line_info.assert_not_called()
+        self.cellosaurus_api.get_cell_line_disease.assert_not_called()
+        self.umls_api.ncit_to_umls_cui.assert_not_called()
+        self.assertTrue(second.cached)
+
+        self.assertEqual(first.cell_line, second.cell_line)
+        self.assertEqual(first.disease, second.disease)

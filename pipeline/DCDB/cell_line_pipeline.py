@@ -1,8 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from apis.cellosaurus import CellosaurusAPI
 from apis.dcdb import DrugCombDBAPI
 from apis.umls import UMLSAPI
+from caching.cache import CacheDict
 from domain.models import CellLine, Disease
 from infraestructure.database import DisnetManager
 from pipeline.base_pipeline import ParallelablePipeline
@@ -13,6 +14,7 @@ from repo.cell_line_repo import CellLineRepo
 class CellLineFetchResult:
     cell_line: CellLine
     disease: Disease | None
+    cached: bool = False
 
 
 class CellLineDiseasePipeline(ParallelablePipeline):
@@ -41,11 +43,23 @@ class CellLineDiseasePipeline(ParallelablePipeline):
         self.cellosaurus_api = cellosaurus_api or CellosaurusAPI()
         self.umls_api = umls_api or UMLSAPI()
 
+        # Cell line and disease caching systems
+        self.cache: CacheDict[CellLineFetchResult] = CacheDict()
+        self.error_cache: CacheDict[CellLineNotResolvableError] = CacheDict()
+
     def fetch(self, cell_line_name: str) -> CellLineFetchResult:
+        # Check if the cell line is already cached
+        if cell_line_name in self.cache:
+            return self.cache[cell_line_name]
+        elif cell_line_name in self.error_cache:
+            raise self.error_cache[cell_line_name]
+
         # Step 1: Extract the cell line Cellosaurus ID from DrugCombDB
         cellosaurus_accession, tissue = self.dcdb_api.get_cell_line_info(cell_line_name)
         if cellosaurus_accession is None:
-            raise CellLineNotResolvableError(cell_line_name, "not found in DrugCombDB database.")
+            error = CellLineNotResolvableError(cell_line_name, "not found in DrugCombDB database.")
+            self.error_cache[cell_line_name] = error
+            raise error
 
         umls_cui = None
 
@@ -66,7 +80,9 @@ class CellLineDiseasePipeline(ParallelablePipeline):
             tissue=tissue,
             disease_id=umls_cui,
         )
-        return CellLineFetchResult(cell_line=cell_line, disease=disease if umls_cui is not None else None)
+        result = CellLineFetchResult(cell_line=cell_line, disease=disease if umls_cui is not None else None)
+        self.cache[cell_line_name] = replace(result, cached=True)
+        return result
 
     def persist(self, fetch_result: CellLineFetchResult):
         if fetch_result.disease:
