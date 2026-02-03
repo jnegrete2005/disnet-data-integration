@@ -6,8 +6,6 @@ from repo.generic_repo import GenericRepo
 class CellLineRepo(GenericRepo):
     def __init__(self, db):
         super().__init__(db)
-        self.cell_line_cache: set[CellLine] = set()
-        self.disease_cache: set[Disease] = set()
 
     @sql_op
     def __create_cell_line_table(self, cursor) -> bool:
@@ -35,9 +33,6 @@ class CellLineRepo(GenericRepo):
         """
         Insert a cell line into the DB. If duplicate key, do nothing.
         """
-        if cell_line in self.cell_line_cache:
-            return True
-
         insert_query = """
             INSERT INTO cell_line (cell_line_id, cell_line_name, source_id, tissue, disease_id)
             VALUES (%s, %s, %s, %s, %s);
@@ -52,7 +47,6 @@ class CellLineRepo(GenericRepo):
                 cell_line.disease_id,
             ),
         )
-        self.cell_line_cache.add(cell_line)
 
         return True
 
@@ -61,14 +55,10 @@ class CellLineRepo(GenericRepo):
         """
         Insert a disease into the DB. If duplicate key, do nothing.
         """
-        if disease in self.disease_cache:
-            return True
-
         insert_query = """
             INSERT INTO disease (disease_id, disease_name)
             VALUES (%s, %s);
         """
         cursor.execute(insert_query, (disease.umls_cui, disease.name))
-        self.disease_cache.add(disease)
 
         return True
