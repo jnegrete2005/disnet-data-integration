@@ -37,8 +37,10 @@ We have created new tables in DISNET's Drugslayer to store the drug combination 
 We have successfully integrated drug combination data from DrugCombDB. However, DrugCombDb has over 500k drug combinations, so we have yet to plan how to integrate all this data efficiently.
 To do it, we will make a better, more efficient caching system for the cell line and disease pipeline, as these are the pipelines that require more API calls.  
 Here is a simple TODO list of the planned improvements:
-- [ ] Implement a cache object to handle caching logic and storage.
-- [ ] Implement a caching system for cell lines and diseases to minimize redundant API calls.
-- [ ] Implement a caching system for drugs to minimize redundant API calls. 
+- [X] Implement a cache object to handle caching logic and storage.
+- [X] Implement a caching system for cell lines and diseases to minimize redundant API calls.
+- [X] Implement a caching system for drugs to minimize redundant API calls.
+- [ ] Optimize the ETL pipeline to handle parallel batch processing (e.g., one process for each 1000 drug combinations).
+- [ ] Implement using the DrugCombDB CSV table for the first N drug combinations.
 
 We also plan to integrate data from other drug combination sources, such as DrugComb, to enrich our dataset and improve the performance of our AI models.
