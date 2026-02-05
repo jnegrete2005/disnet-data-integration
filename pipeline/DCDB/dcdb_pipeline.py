@@ -1,6 +1,5 @@
 import json
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -105,9 +104,10 @@ class DrugCombDBPipeline(IntegrationPipeline):
         # Extract drug combination data from DrugCombDB
         for i in range(start, end, step):
             try:
-                exp_id = self._get_exp_id(i)
+                exp_id = self._etl_pipeline(i)
                 if exp_id is None:
                     skipped += 1
+                    logger.info("Skipped drug combination %d", i)
                     continue
 
                 succeeded += 1
@@ -127,53 +127,48 @@ class DrugCombDBPipeline(IntegrationPipeline):
             failed,
         )
 
-    def _get_exp_id(self, i: int) -> int | None:
+    def _etl_pipeline(self, i: int) -> int | None:
+        """
+        ETL Pipeline for a single drug combination identified by its ID in DrugCombDB.
+        """
         drugcomb = self.dcdb_api.get_drug_combination_info(i)
 
         drugs = [drugcomb.drug1, drugcomb.drug2]
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            future_drugs = executor.submit(self.drug_pipeline.fetch, drugs)
-            future_cell_line = executor.submit(self.cell_line_pipeline.fetch, drugcomb.cell_line)
-
-            # DRUGS PROCESSING
-            try:
-                fetched_drugs = future_drugs.result()
-            except DrugNotResolvableError as e:
-                logger.warning(
-                    "Skipping drug combination %d due to unresolved drug: %s (Reason: %s)",
-                    i,
-                    e.drug_name,
-                    e.reason,
-                )
-                self._audit_skipped(combination_id=i, stage="drug", entity=e.drug_name, code=e.code)
-                return None
-            except Exception as e:
-                self._audit_skipped(combination_id=i, stage="drug", message=str(e))
-                raise
-
-            # CELL LINE AND DISEASE PROCESSING
-            try:
-                fetched_cell_line = future_cell_line.result()
-            except CellLineNotResolvableError as e:
-                logger.warning(
-                    "Skipping drug combination %d due to unresolved cell line: %s",
-                    i,
-                    e.cell_line_name,
-                )
-                self._audit_skipped(
-                    combination_id=i,
-                    stage="cell_line",
-                    entity=e.cell_line_name,
-                    code=None,
-                )
-                return None
-            except Exception as e:
-                self._audit_skipped(combination_id=i, stage="cell_line", message=str(e))
-                raise
-
-        # Persist fetched data
+        try:
+            fetched_drugs = self.drug_pipeline.fetch(drugs)
+        except DrugNotResolvableError as e:
+            logger.warning(
+                "Skipping drug combination %d due to unresolved drug: %s (Reason: %s)",
+                i,
+                e.drug_name,
+                e.reason,
+            )
+            self._audit_skipped(combination_id=i, stage="drug", entity=e.drug_name, code=e.code)
+            return None
+        except Exception as e:
+            self._audit_skipped(combination_id=i, stage="drug", message=str(e))
+            raise
         self.drug_pipeline.persist(fetched_drugs)
+
+        try:
+            fetched_cell_line = self.cell_line_pipeline.fetch(drugcomb.cell_line)
+        except CellLineNotResolvableError as e:
+            logger.warning(
+                "Skipping drug combination %d due to unresolved cell line: %s",
+                i,
+                e.cell_line_name,
+            )
+            self._audit_skipped(
+                combination_id=i,
+                stage="cell_line",
+                entity=e.cell_line_name,
+                code=None,
+            )
+            return None
+        except Exception as e:
+            self._audit_skipped(combination_id=i, stage="cell_line", message=str(e))
+            raise
         self.cell_line_pipeline.persist(fetched_cell_line)
 
         processed_drugs = [result.chembl_drug for result in fetched_drugs]

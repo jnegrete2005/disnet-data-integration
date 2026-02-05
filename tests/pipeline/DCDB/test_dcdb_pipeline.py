@@ -1,9 +1,9 @@
 import unittest
-from unittest.mock import ANY, MagicMock, mock_open, patch
+from unittest.mock import ANY, MagicMock, mock_open
 
-from pipeline.DCDB.cell_line_pipeline import CellLineNotResolvableError
+from pipeline.DCDB.cell_line_pipeline import CellLineFetchResult, CellLineNotResolvableError
 from pipeline.DCDB.dcdb_pipeline import DrugCombDBPipeline
-from pipeline.DCDB.drug_pipeline import DrugNotResolvableError
+from pipeline.DCDB.drug_pipeline import DrugFetchResult, DrugNotResolvableError
 
 
 class TestDrugCombDBPipeline(unittest.TestCase):
@@ -84,8 +84,7 @@ class TestDrugCombDBPipeline(unittest.TestCase):
         self.assertIn('"combination_id": 1', written_data)
         self.assertIn('"stage": "test_stage"', written_data)
 
-    @patch("pipeline.DCDB.dcdb_pipeline.ThreadPoolExecutor")
-    def test_get_exp_id_success(self, MockExecutor):
+    def test_get_exp_id_success(self):
         """
         Test the main logic of processing a single experiment ID (Happy Path).
         Verifies:
@@ -101,21 +100,16 @@ class TestDrugCombDBPipeline(unittest.TestCase):
         mock_combo_info.cell_line = "HeLa"
         self.mock_dcdb_api.get_drug_combination_info.return_value = mock_combo_info
 
-        # 2. Mock ThreadPoolExecutor behavior
-        # We need the futures returned by executor.submit to have a .result() method
-        mock_future_drugs = MagicMock()
-        mock_fetched_drug_result = [MagicMock(chembl_drug=MagicMock(drug_id="CHEMBL1"))]
-        mock_future_drugs.result.return_value = mock_fetched_drug_result
-
-        mock_future_cell = MagicMock()
-        mock_fetched_cell_result = MagicMock()
-        mock_fetched_cell_result.cell_line.cell_line_id = "CVCL_0001"
-        mock_future_cell.result.return_value = mock_fetched_cell_result
-
-        # Configure the executor context manager
-        instance = MockExecutor.return_value.__enter__.return_value
-        # side_effect allows returning different values for consecutive calls to submit
-        instance.submit.side_effect = [mock_future_drugs, mock_future_cell]
+        # 2. Mock Drug and Cell Line processing
+        mock_fetched_drug_result = [
+            DrugFetchResult(chembl_drug=MagicMock(drug_id="CHEMBL1"), raw_drug=MagicMock()),
+            DrugFetchResult(chembl_drug=MagicMock(drug_id="CHEMBL2"), raw_drug=MagicMock()),
+        ]
+        mock_fetched_cell_result = CellLineFetchResult(
+            cell_line=MagicMock(cell_line_id="CVCL_0001"), disease=MagicMock()
+        )
+        self.mock_drug_pipeline.fetch.return_value = mock_fetched_drug_result
+        self.mock_cell_line_pipeline.fetch.return_value = mock_fetched_cell_result
 
         # 3. Mock Score processing
         self.mock_score_pipeline.run.return_value = ([], 1)  # (scores, classification)
@@ -124,19 +118,16 @@ class TestDrugCombDBPipeline(unittest.TestCase):
         self.mock_experiment_pipeline.run.return_value = 12345
 
         # --- EXECUTE ---
-        result_id = self.pipeline._get_exp_id(99)
+        result_id = self.pipeline._etl_pipeline(99)
 
         # --- ASSERTIONS ---
-        # Verify fetches were submitted
-        self.assertEqual(instance.submit.call_count, 2)
-
         # Verify Persist calls
         self.mock_drug_pipeline.persist.assert_called_once_with(mock_fetched_drug_result)
         self.mock_cell_line_pipeline.persist.assert_called_once_with(mock_fetched_cell_result)
 
         # Verify Experiment Pipeline Run
         self.mock_experiment_pipeline.run.assert_called_once_with(
-            drug_ids=["CHEMBL1"],
+            drug_ids=["CHEMBL1", "CHEMBL2"],
             classification=1,
             cell_line_id="CVCL_0001",
             scores=[],
@@ -145,26 +136,19 @@ class TestDrugCombDBPipeline(unittest.TestCase):
         )
         self.assertEqual(result_id, 12345)
 
-    @patch("pipeline.DCDB.dcdb_pipeline.ThreadPoolExecutor")
-    def test_get_exp_id_drug_resolvable_error(self, MockExecutor):
+    def test_get_exp_id_drug_resolvable_error(self):
         """Test that DrugNotResolvableError is caught and audited."""
         # Mock API
         self.mock_dcdb_api.get_drug_combination_info.return_value = MagicMock()
 
-        # Mock Futures to raise exception
-        mock_future_drugs = MagicMock()
-        mock_future_drugs.result.side_effect = DrugNotResolvableError("BadDrug", 404)
-
-        mock_future_cell = MagicMock()  # This won't even be checked if drugs fail first, or will run in parallel
-
-        instance = MockExecutor.return_value.__enter__.return_value
-        instance.submit.side_effect = [mock_future_drugs, mock_future_cell]
+        # Drug Pipeline fails with resolvable error
+        self.mock_drug_pipeline.fetch.side_effect = DrugNotResolvableError("BadDrug", 404)
 
         # Audit Mocking
         self.pipeline._audit_skipped = MagicMock()
 
         # Execute
-        result = self.pipeline._get_exp_id(99)
+        result = self.pipeline._etl_pipeline(99)
 
         # Assertions
         self.assertIsNone(result)
@@ -174,25 +158,19 @@ class TestDrugCombDBPipeline(unittest.TestCase):
         # Ensure we did NOT persist
         self.mock_drug_pipeline.persist.assert_not_called()
 
-    @patch("pipeline.DCDB.dcdb_pipeline.ThreadPoolExecutor")
-    def test_get_exp_id_cell_line_resolvable_error(self, MockExecutor):
+    def test_get_exp_id_cell_line_resolvable_error(self):
         """Test that CellLineNotResolvableError is caught and audited."""
         self.mock_dcdb_api.get_drug_combination_info.return_value = MagicMock()
 
         # Drugs succeed
-        mock_future_drugs = MagicMock()
-        mock_future_drugs.result.return_value = []
+        self.mock_drug_pipeline.fetch.return_value = []
 
         # Cell Line fails
-        mock_future_cell = MagicMock()
-        mock_future_cell.result.side_effect = CellLineNotResolvableError("BadCell", "Not found")
-
-        instance = MockExecutor.return_value.__enter__.return_value
-        instance.submit.side_effect = [mock_future_drugs, mock_future_cell]
+        self.mock_cell_line_pipeline.fetch.side_effect = CellLineNotResolvableError("BadCell", "Not found")
 
         self.pipeline._audit_skipped = MagicMock()
 
-        result = self.pipeline._get_exp_id(99)
+        result = self.pipeline._etl_pipeline(99)
 
         self.assertIsNone(result)
         self.pipeline._audit_skipped.assert_called_once_with(
@@ -216,17 +194,17 @@ class TestDrugCombDBPipeline(unittest.TestCase):
         self.mock_checkpoint_path.read_text.return_value = "0"
 
         # Mock the internal method _get_exp_id to avoid complex logic here
-        self.pipeline._get_exp_id = MagicMock()
+        self.pipeline._etl_pipeline = MagicMock()
 
         # Case 1: ID 1 returns Success (123), ID 2 returns None (Skipped)
-        self.pipeline._get_exp_id.side_effect = [123, None]
+        self.pipeline._etl_pipeline.side_effect = [123, None]
 
         # Execute run for range 1 to 3 (so it processes 1 and 2)
         self.pipeline.run(start=1, end=3, step=1)
 
         # Assertions
         # Should be called for 1 and 2
-        self.assertEqual(self.pipeline._get_exp_id.call_count, 2)
+        self.assertEqual(self.pipeline._etl_pipeline.call_count, 2)
 
         # Save checkpoint should be called ONLY for the successful one (ID 1)
         # or it might be called for all depending on implementation.
