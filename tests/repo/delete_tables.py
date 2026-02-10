@@ -3,7 +3,6 @@ from infraestructure.database import DisnetManager
 
 def delete_tables():
     db = DisnetManager(test=True)
-    db.connect()
 
     cursor = db.get_cursor()
 

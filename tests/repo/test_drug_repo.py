@@ -11,7 +11,7 @@ class TestDrugRepo(unittest.TestCase):
     def setUpClass(cls):
         delete_tables()
         cls.db = DisnetManager(test=True)
-        cls.db.connect()
+
         cls.repo = DrugRepo(cls.db)
 
         # Create tables before testing

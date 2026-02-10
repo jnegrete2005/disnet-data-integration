@@ -10,7 +10,7 @@ class TestScoreRepo(unittest.TestCase):
     def setUpClass(cls):
         delete_tables()
         cls.db = DisnetManager(test=True)
-        cls.db.connect()
+
         cls.repo = ScoreRepo(cls.db)
 
         # Create tables before testing
@@ -31,9 +31,7 @@ class TestScoreRepo(unittest.TestCase):
 
         # Check the DB directly
         cursor = self.db.get_cursor()
-        cursor.execute(
-            "SELECT score_id FROM score WHERE score_name = %s;", (score_name,)
-        )
+        cursor.execute("SELECT score_id FROM score WHERE score_name = %s;", (score_name,))
         result = cursor.fetchone()
         self.assertIsNotNone(result)
         self.assertEqual(result[0], score_id_1)

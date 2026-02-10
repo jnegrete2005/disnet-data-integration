@@ -15,7 +15,7 @@ class TestExperimentRepo(unittest.TestCase):
     def setUpClass(cls):
         delete_tables()
         cls.db = DisnetManager(test=True)
-        cls.db.connect()
+
         cls.exp_repo = ExperimentRepo(cls.db)
         cls.dc_repo = DrugCombRepo(cls.db)
         cls.drug_repo = DrugRepo(cls.db)
@@ -116,20 +116,14 @@ class TestExperimentRepo(unittest.TestCase):
 
     def test_get_or_create_experiment(self):
         scores1 = [
-            Score(
-                score_id=self.score_id_A, score_name=self.score_name_A, score_value=4
-            ),
-            Score(
-                score_id=self.score_id_B, score_name=self.score_name_B, score_value=1
-            ),
+            Score(score_id=self.score_id_A, score_name=self.score_name_A, score_value=4),
+            Score(score_id=self.score_id_B, score_name=self.score_name_B, score_value=1),
         ]
         exp1 = Experiment(
             dc_id=self.dc_id_1,
             cell_line_id=self.cell_line_id,
             experiment_source_id=self.exp_repo.get_or_create_exp_source("Source A"),
-            experiment_classification_id=self.exp_repo.get_or_create_exp_class(
-                "Class A"
-            ),
+            experiment_classification_id=self.exp_repo.get_or_create_exp_class("Class A"),
             scores=scores1,
         )
         exp1.experiment_id = self.exp_repo.get_or_create_experiment(exp1)
