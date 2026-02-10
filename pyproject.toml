@@ -1,0 +1,9 @@
+[project]
+name = "data-integration"
+version = "0.1.0"
+description = "Integrate drug combinations to MEDALS's DISNET database."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "ruff>=0.15.0",
+]

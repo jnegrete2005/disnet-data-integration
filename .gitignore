@@ -1,7 +1,5 @@
 .env
 .ruff_cache/
 __pycache__/
-*.csv
-integrate_data.ipynb
 *.chkpt
 *.log
