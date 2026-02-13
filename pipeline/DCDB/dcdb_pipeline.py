@@ -5,6 +5,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from apis.dcdb import DrugCombDBAPI
+from apis.schemas.dcdb import DrugCombData
 from infraestructure.database import DisnetManager
 from pipeline.base_pipeline import IntegrationPipeline
 from pipeline.DCDB.cell_line_pipeline import CellLineDiseasePipeline, CellLineNotResolvableError
@@ -131,8 +132,7 @@ class DrugCombDBPipeline(IntegrationPipeline):
         """
         ETL Pipeline for a single drug combination identified by its ID in DrugCombDB.
         """
-        drugcomb = self.dcdb_api.get_drug_combination_info(i)
-
+        drugcomb = self.get_initial_drug_comb(i, self.dcdb_api)
         drugs = [drugcomb.drug1, drugcomb.drug2]
 
         try:
@@ -187,6 +187,11 @@ class DrugCombDBPipeline(IntegrationPipeline):
             combination_id=i,
         )
         return exp_id
+
+    @staticmethod
+    def get_initial_drug_comb(combination_id: int, dcdb_api: DrugCombDBAPI = None) -> DrugCombData:
+        api = dcdb_api or DrugCombDBAPI()
+        return api.get_drug_combination_info(combination_id)
 
     def _process_scores(self, drugcomb):
         return self.score_pipeline.run(
