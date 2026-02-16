@@ -3,10 +3,10 @@ import os
 import requests
 from dotenv import load_dotenv
 
-from apis.api_interface import APIInterface
+from apis.api_interface import BaseAPI
 
 
-class UMLSAPI(APIInterface):
+class UMLSAPI(BaseAPI):
     def __init__(self):
         super().__init__(base_url="https://uts-ws.nlm.nih.gov/rest/")
         load_dotenv("../.env")

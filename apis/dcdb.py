@@ -1,12 +1,12 @@
 import requests
 
-from apis.api_interface import APIInterface
+from apis.api_interface import BaseAPI
 from domain.models import Drug
 
 from .schemas.dcdb import DrugCombData, DrugCombDBAPIResponse, DrugData
 
 
-class DrugCombDBAPI(APIInterface):
+class DrugCombDBAPI(BaseAPI):
     def __init__(self):
         super().__init__(base_url="http://drugcombdb.denglab.org:8888/")
 

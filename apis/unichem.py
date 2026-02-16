@@ -1,9 +1,9 @@
 import requests
 
-from apis.api_interface import APIInterface
+from apis.api_interface import BaseAPI
 
 
-class UniChemAPI(APIInterface):
+class UniChemAPI(BaseAPI):
     def __init__(self):
         super().__init__(base_url="https://www.ebi.ac.uk/unichem/api/v1/")
 
