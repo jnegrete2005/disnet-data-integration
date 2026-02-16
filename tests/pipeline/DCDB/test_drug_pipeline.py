@@ -1,186 +1,245 @@
 import unittest
-from unittest.mock import MagicMock, patch
+import sqlite3
+from unittest.mock import MagicMock, patch, call
 
 from domain.models import Drug, ForeignMap
-
-# Adjust imports to match your structure
+# Adjust this import to match your actual file location
 from pipeline.DCDB.drug_pipeline import (
-    NOT_FOUND_IN_CHEMBL_CODE,
+    DrugPipeline,
     NOT_FOUND_IN_DCDB_CODE,
     NOT_FOUND_IN_UNICHEM_CODE,
-    DrugNotResolvableError,
-    DrugPipeline,
+    NOT_FOUND_IN_CHEMBL_CODE
 )
 
 
-class TestDrugPipeline(unittest.TestCase):
+class TestStagedDrugPipeline(unittest.TestCase):
     def setUp(self):
-        # 1. Mock DB & Repo
-        self.db = MagicMock()
-        self.drug_repo = MagicMock()
+        # 1. Setup In-Memory SQLite DB (Fresh for every test)
+        self.conn = sqlite3.connect(":memory:")
+        self.conn.execute("""
+            CREATE TABLE drugs (
+                id INTEGER PRIMARY KEY,
+                drug_id TEXT,
+                drugName TEXT,
+                chemical_structure TEXT,
+                drugNameOfficial TEXT
+            )
+        """)
+        self.conn.commit()
 
-        # 2. Mock APIs
-        self.dcdb_api = MagicMock()
-        self.unichem_api = MagicMock()
+        # 2. Mock External Dependencies
+        self.mock_db_manager = MagicMock()
+        self.mock_repo = MagicMock()
+        self.mock_dcdb_api = MagicMock()
+        self.mock_unichem_api = MagicMock()
 
-        # 3. Instantiate pipeline
+        # 3. Instantiate Pipeline
         self.pipeline = DrugPipeline(
-            db=self.db,
+            db=self.mock_db_manager,
             chembl_source_id=1,
             pubchem_source_id=2,
-            dcdb_api=self.dcdb_api,
-            unichem_api=self.unichem_api,
+            dcdb_api=self.mock_dcdb_api,
+            unichem_api=self.mock_unichem_api,
+            conn=self.conn,
         )
 
-        # 4. Inject mocked repo (Replacing the real one)
-        self.pipeline.drug_repo = self.drug_repo
+        # Inject the mock repo explicitly
+        self.pipeline.drug_repo = self.mock_repo
+
+    def tearDown(self):
+        self.conn.close()
+
+    def _get_row(self, drug_name):
+        """Helper to fetch a row from the staging table for assertions."""
+        cursor = self.conn.execute("SELECT * FROM staging_drugs WHERE drug_name=?", (drug_name,))
+        columns = [desc[0] for desc in cursor.description]
+        row = cursor.fetchone()
+        if row:
+            return dict(zip(columns, row))
+        return None
+
+    # =========================================================================
+    # TEST: Happy Path (Full Success)
+    # =========================================================================
 
     @patch("pipeline.DCDB.drug_pipeline.new_client")
-    def test_run_successful_full_translation(self, mock_chembl_client):
+    def test_full_pipeline_success(self, mock_chembl_client):
         """
-        Scenario: DCDB -> UniChem -> ChEMBL -> Full Success
+        Scenario: Aspirin -> PubChem(123) -> ChEMBL(CHEMBL25) -> Success -> Persist
         """
-        # --- Data Setup ---
-        raw_drug = Drug(drug_id="12345", source_id=2, drug_name="Aspirin")
+        drug_name = "Aspirin"
+        pubchem_id = "12345"
         chembl_id = "CHEMBL25"
-        inchi_key = "BSYNRYMUTXBXSQ-UHFFFAOYSA-N"
+        inchi = "INCHI_KEY_ABC"
 
-        self.dcdb_api.get_drug_info.return_value = raw_drug
-        self.unichem_api.get_compound_mappings.return_value = (chembl_id, inchi_key)
-
-        # Mock ChEMBL Chain: client.molecule.filter().only()
-        mock_chembl_client.molecule.filter.return_value.only.return_value = [
-            {
-                "molecule_chembl_id": chembl_id,
-                "pref_name": "Aspirin",
-                "molecule_type": "Small molecule",
-                "molecule_structures": {
-                    "canonical_smiles": "CC(=O)Oc1ccccc1C(=O)O",
-                    "standard_inchi_key": inchi_key,
-                },
+        # --- Mocks Setup ---
+        # Stage 1: DCDB
+        self.mock_dcdb_api.get_drug_info.return_value = Drug(
+            drug_id=pubchem_id, drug_name=drug_name, chemical_structure="SMILES_1", source_id=2
+        )
+        # Stage 2: UniChem
+        self.mock_unichem_api.get_compound_mappings.return_value = (chembl_id, inchi)
+        # Stage 3: ChEMBL
+        mock_chembl_client.molecule.filter.return_value.only.return_value = [{
+            "molecule_chembl_id": chembl_id,
+            "pref_name": "Aspirin",
+            "molecule_type": "Small molecule",
+            "molecule_structures": {
+                "canonical_smiles": "SMILES_FINAL",
+                "standard_inchi_key": inchi
             }
-        ]
+        }]
 
-        # --- Fetch ---
-        result_set = self.pipeline.fetch(["Aspirin"])
-        self.pipeline.fetch(["Aspirin"])  # Run twice to test caching
+        # --- EXECUTION ---
 
-        # --- Assertions ---
-        # 1. APIs
-        self.dcdb_api.get_drug_info.assert_called_with("Aspirin", self.pipeline.pubchem_source_id)
-        self.unichem_api.get_compound_mappings.assert_called_with("12345")
-        mock_chembl_client.molecule.filter.assert_called_with(molecule_chembl_id=chembl_id)
+        # 1. Stage 0: Init
+        self.pipeline.stage_0([drug_name])
+        row = self._get_row(drug_name)
+        self.assertIsNotNone(row)
+        self.assertEqual(row['status'], 0)
 
-        # --- Persist ---
-        self.pipeline.persist(result_set)
+        # 2. Stage 1: PubChem
+        self.pipeline.stage_1()
+        row = self._get_row(drug_name)
+        self.assertEqual(row['status'], 1)
+        self.assertEqual(row['pubchem_id'], pubchem_id)
 
-        # Repo Interactions (Using self.drug_repo)
-        self.drug_repo.add_raw_drug.assert_called_once()
-        self.drug_repo.add_chembl_drug.assert_called_once()
-        self.drug_repo.map_foreign_to_chembl.assert_called_once()
+        # 3. Stage 2: UniChem
+        self.pipeline.stage_2()
+        row = self._get_row(drug_name)
+        self.assertEqual(row['status'], 2)
+        self.assertEqual(row['chembl_id'], chembl_id)
+        self.assertEqual(row['inchi_key'], inchi)
 
-        # 2. Check the mapping object passed to the repo
-        mapping_arg = self.drug_repo.map_foreign_to_chembl.call_args[0][0]
-        self.assertIsInstance(mapping_arg, ForeignMap)
-        self.assertEqual(mapping_arg.foreign_id, "12345")
-        self.assertEqual(mapping_arg.chembl_id, chembl_id)
+        # 4. Stage 3: ChEMBL
+        self.pipeline.stage_3()
+        row = self._get_row(drug_name)
+        self.assertEqual(row['status'], 3)
+        self.assertEqual(row['molecular_type'], "Small molecule")
+        self.assertEqual(row['chemical_structure'], "SMILES_FINAL")
 
-        # 3. Result
-        result_drug = result_set[0].chembl_drug
-        self.assertIsNotNone(result_drug)
-        self.assertEqual(result_drug.drug_id, chembl_id)
+        # 5. Persist
+        self.pipeline.persist()
 
-    def test_run_not_found_in_unichem(self):
+        # --- ASSERTIONS (Repo) ---
+        # Verify ChEMBL Drug Saved
+        self.mock_repo.add_chembl_drug.assert_called()
+        saved_chembl = self.mock_repo.add_chembl_drug.call_args[0][0]
+        self.assertEqual(saved_chembl.drug_id, chembl_id)
+
+    # =========================================================================
+    # TEST: Error Handling Scenarios
+    # =========================================================================
+
+    def test_stage_1_not_found_in_dcdb(self):
         """
-        Scenario: DCDB -> UniChem (No Match) -> Raises error
+        Scenario: Drug not in DCDB -> Status -1, Error Code DCDB
         """
-        # --- Data Setup ---
-        self.dcdb_api.get_drug_info.return_value = Drug(drug_id="999", source_id=2, drug_name="RareDrug")
-        self.unichem_api.get_compound_mappings.return_value = (None, "SOME_INCHI")
+        drug_name = "GhostDrug"
+        self.mock_dcdb_api.get_drug_info.return_value = None
 
-        # --- Run ---
-        with self.assertRaises(DrugNotResolvableError) as cm:
-            self.pipeline.fetch(["RareDrug"])
+        self.pipeline.stage_0([drug_name])
+        self.pipeline.stage_1()
 
-        # --- Assertions ---
-        self.assertEqual(cm.exception.code, NOT_FOUND_IN_UNICHEM_CODE)
+        row = self._get_row(drug_name)
+        self.assertEqual(row['status'], -1)
+        self.assertEqual(row['error_code'], NOT_FOUND_IN_DCDB_CODE)
+        self.assertIsNone(row['pubchem_id'])
 
-    def test_run_handles_suffix_cleaning(self):
+    def test_stage_2_not_found_in_unichem(self):
         """
-        Scenario: 'Paracetamol (approved)' -> 'Paracetamol'
+        Scenario: PubChem ID found, but no ChEMBL ID in UniChem -> Status -1
         """
-        self.dcdb_api.get_drug_info.return_value = Drug(drug_id="1", drug_name="Paracetamol", source_id=2)
-        self.unichem_api.get_compound_mappings.return_value = (None, None)
+        drug_name = "RareDrug"
+        pubchem_id = "999"
 
-        with self.assertRaises(DrugNotResolvableError):
-            self.pipeline.fetch(["Paracetamol (approved)"])
-            self.dcdb_api.get_drug_info.assert_called_with("Paracetamol")
+        # Setup: Pass Stage 1
+        self.mock_dcdb_api.get_drug_info.return_value = Drug(drug_id=pubchem_id, drug_name=drug_name, source_id=2)
+        # Setup: Fail Stage 2
+        self.mock_unichem_api.get_compound_mappings.return_value = (None, None)
 
-            self.pipeline.fetch(["Paracetamol(approved)"])
-            self.dcdb_api.get_drug_info.assert_called_with("Paracetamol")
+        self.pipeline.stage_0([drug_name])
+        self.pipeline.stage_1()  # Status -> 1
+        self.pipeline.stage_2()  # Status -> -1
 
-    def test_error_drug_not_in_dcdb(self):
-        """
-        Scenario: DCDB API returns None -> Raise Error Code 1
-        """
-        self.dcdb_api.get_drug_info.return_value = None
-
-        with self.assertRaises(DrugNotResolvableError) as cm:
-            self.pipeline.fetch(["GhostDrug"])
-
-        self.assertEqual(cm.exception.code, NOT_FOUND_IN_DCDB_CODE)
+        row = self._get_row(drug_name)
+        self.assertEqual(row['status'], -1)
+        self.assertEqual(row['error_code'], NOT_FOUND_IN_UNICHEM_CODE)
+        self.assertEqual(row['pubchem_id'], pubchem_id)  # Should still be there
 
     @patch("pipeline.DCDB.drug_pipeline.new_client")
-    def test_error_mapped_but_not_in_chembl(self, mock_chembl_client):
+    def test_stage_3_not_found_in_chembl(self, mock_chembl_client):
         """
-        Scenario: UniChem Maps -> ChEMBL returns empty -> Raise Error Code 2
+        Scenario: ChEMBL ID known, but ChEMBL API returns empty -> Status -1
         """
-        # 1. DCDB
-        self.dcdb_api.get_drug_info.return_value = Drug(drug_id="1", drug_name="X", source_id=2)
-        # 2. UniChem
-        self.unichem_api.get_compound_mappings.return_value = ("CHEMBL_OLD", "KEY")
-        # 3. ChEMBL (Empty list)
+        drug_name = "OldDrug"
+
+        # Setup: Pass Stage 1 & 2
+        self.mock_dcdb_api.get_drug_info.return_value = Drug(drug_id="1", drug_name=drug_name, source_id=2)
+        self.mock_unichem_api.get_compound_mappings.return_value = ("CHEMBL_OLD", "KEY")
+
+        # Setup: Fail Stage 3
         mock_chembl_client.molecule.filter.return_value.only.return_value = []
 
-        with self.assertRaises(DrugNotResolvableError) as error:
-            self.pipeline.fetch(["X"])
+        self.pipeline.stage_0([drug_name])
+        self.pipeline.stage_1()
+        self.pipeline.stage_2()
+        self.pipeline.stage_3()
 
-        self.assertEqual(error.exception.code, NOT_FOUND_IN_CHEMBL_CODE)
-        self.assertEqual(error.exception.code, NOT_FOUND_IN_CHEMBL_CODE)
+        row = self._get_row(drug_name)
+        self.assertEqual(row['status'], -1)
+        self.assertEqual(row['error_code'], NOT_FOUND_IN_CHEMBL_CODE)
+        self.assertEqual(row['chembl_id'], "CHEMBL_OLD")
 
-    @patch("pipeline.DCDB.drug_pipeline.new_client")
-    def test_caching_mechanism(self, mock_chembl_client):
+    # =========================================================================
+    # TEST: Robustness & Idempotency
+    # =========================================================================
+
+    def test_idempotency_skip_processed_rows(self):
         """
-        Test that repeated fetches for the same drug use the cache.
+        Scenario: If Stage 1 is run twice, it should not call the API for rows 
+        that are already done or failed.
         """
-        # Setup
-        raw_drug = Drug(drug_id="123", source_id=2, drug_name="CachedDrug")
-        chembl_id = "CHEMBL123"
-        inchi_key = "KEY123"
+        drug_name = "DoneDrug"
+        self.mock_dcdb_api.get_drug_info.return_value = Drug(drug_id="1", drug_name=drug_name, source_id=2)
 
-        self.dcdb_api.get_drug_info.return_value = raw_drug
-        self.unichem_api.get_compound_mappings.return_value = (chembl_id, inchi_key)
+        self.pipeline.stage_0([drug_name])
 
-        mock_chembl_client.molecule.filter.return_value.only.return_value = [
-            {
-                "molecule_chembl_id": chembl_id,
-                "pref_name": "CachedDrug",
-                "molecule_type": "Small molecule",
-                "molecule_structures": {
-                    "canonical_smiles": "SMILES",
-                    "standard_inchi_key": inchi_key,
-                },
-            }
-        ]
+        # Run Stage 1 Once
+        self.pipeline.stage_1()
+        self.assertEqual(self.mock_dcdb_api.get_drug_info.call_count, 1)
 
-        # First fetch
-        result1 = self.pipeline.fetch(["CachedDrug"])
-        # Second fetch (should hit cache)
-        result2 = self.pipeline.fetch(["CachedDrug"])
+        # Run Stage 1 Again (Should ignore "DoneDrug" because status is 1)
+        self.pipeline.stage_1()
+        self.assertEqual(self.mock_dcdb_api.get_drug_info.call_count, 1)
 
-        # Assertions
-        self.assertEqual(result1[0].chembl_drug, result2[0].chembl_drug)
-        self.assertTrue(result2[0].cached)
-        self.dcdb_api.get_drug_info.assert_called_once_with("CachedDrug", self.pipeline.pubchem_source_id)
-        self.unichem_api.get_compound_mappings.assert_called_once_with("123")
-        mock_chembl_client.molecule.filter.assert_called_once_with(molecule_chembl_id=chembl_id)
+    def test_pipeline_resumes_from_crash(self):
+        """
+        Scenario: Manually insert a row in 'Stage 2 pending' state (simulating a resume after crash).
+        Verify Stage 1 skips it and Stage 2 picks it up.
+        """
+        drug_name = "ResumedDrug"
+        pubchem_id = "555"
+
+        # Simulate a crash: Insert row directly with Status=1 (Passed Stage 1)
+        self.pipeline.stage_0([drug_name])
+        self.conn.execute(
+            "UPDATE staging_drugs SET status=1, pubchem_id=? WHERE drug_name=?",
+            (pubchem_id, drug_name)
+        )
+        self.conn.commit()
+
+        # Setup Stage 2 success
+        self.mock_unichem_api.get_compound_mappings.return_value = ("CHEMBL555", "KEY")
+
+        # Run Stage 1 (Should skip)
+        self.pipeline.stage_1()
+        self.mock_dcdb_api.get_drug_info.assert_not_called()
+
+        # Run Stage 2 (Should pick it up)
+        self.pipeline.stage_2()
+        self.mock_unichem_api.get_compound_mappings.assert_called_with(pubchem_id)
+
+        row = self._get_row(drug_name)
+        self.assertEqual(row['status'], 2)
+        self.assertEqual(row['chembl_id'], "CHEMBL555")
