@@ -1,32 +1,25 @@
-from dataclasses import dataclass, replace
+import sqlite3
 
+from typing import List, Optional, Tuple
 from apis.cellosaurus import CellosaurusAPI
 from apis.dcdb import DrugCombDBAPI
 from apis.umls import UMLSAPI
-from caching.cache import CacheDict
 from domain.models import CellLine, Disease
 from infraestructure.database import DisnetManager
-from pipeline.base_pipeline import ParallelablePipeline
 from repo.cell_line_repo import CellLineRepo
 
-
-@dataclass(frozen=True)
-class CellLineFetchResult:
-    cell_line: CellLine
-    disease: Disease | None
-    cached: bool = False
+BATCH_SIZE = 1000
 
 
-class CellLineDiseasePipeline(ParallelablePipeline):
+class CellLinePipeline:
     """
-    Process the cell line and the disease associated with a drug combination in DrugCombDB.
+    Staged pipeline for extracting Cell Line data.
 
-    The pipeline will follow these steps:
-    1. Extract the cell line Cellosaurus ID from DrugCombDB using the DrugCombDBAPI.
-    2. Get the cell line's associated disease with the Cellosaurus API.
-    3. Transform the disease ID (NCIt) to UMLS CUI using the UMLS API.
-    4. Load the disease into the DISNET database.
-    5. Load the cell line into the DISNET database.
+    Stages:
+    1. Resolve COSMIC ID from local tables and translate to Cellosaurus ID.
+    2. Get disease NCIT ID from Cellosaurus.
+    3. Map NCIt to UMLS CUI.
+    4. Persist to DISNET.
     """
 
     def __init__(
@@ -36,61 +29,212 @@ class CellLineDiseasePipeline(ParallelablePipeline):
         dcdb_api: DrugCombDBAPI = None,
         cellosaurus_api: CellosaurusAPI = None,
         umls_api: UMLSAPI = None,
+        conn: sqlite3.Connection = None,
     ):
         self.cell_line_repo = CellLineRepo(db)
         self.dcdb_api = dcdb_api or DrugCombDBAPI()
-        self.cellosaurus_source_id = cellosaurus_source_id
         self.cellosaurus_api = cellosaurus_api or CellosaurusAPI()
         self.umls_api = umls_api or UMLSAPI()
+        self.cellosaurus_source_id = cellosaurus_source_id
+        self.sqlite_conn = conn
 
-        # Cell line and disease caching systems
-        self.cache: CacheDict[CellLineFetchResult] = CacheDict()
-        self.error_cache: CacheDict[CellLineNotResolvableError] = CacheDict()
+    def _init_staging_table(self):
+        cursor = self.sqlite_conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS staging_cell_lines (
+                original_name TEXT PRIMARY KEY,
+                
+                -- STAGE 1: IDENTIFICATION (Local Table -> COSMIC -> CELLOSAURUS)
+                cosmic_id TEXT,
+                cellosaurus_accession TEXT,
+                tissue TEXT,
 
-    def fetch(self, cell_line_name: str) -> CellLineFetchResult:
-        # Check if the cell line is already cached
-        if cell_line_name in self.cache:
-            return self.cache[cell_line_name]
-        elif cell_line_name in self.error_cache:
-            raise self.error_cache[cell_line_name]
+                -- STAGE 2: DISEASE ASSOCIATION (Cellosaurus)
+                ncit_accession TEXT,
 
-        # Step 1: Extract the cell line Cellosaurus ID from DrugCombDB
-        cellosaurus_accession, tissue = self.dcdb_api.get_cell_line_info(cell_line_name)
-        if cellosaurus_accession is None:
-            error = CellLineNotResolvableError(cell_line_name, "not found in DrugCombDB database.")
-            self.error_cache[cell_line_name] = error
-            raise error
+                -- STAGE 3: DISEASE MAPPING (UMLS)
+                umls_cui TEXT,
+                disease_name TEXT,
 
-        umls_cui = None
-
-        # Step 2: Get the cell line's associated disease with the Cellosaurus API
-        ncit_accession = self.cellosaurus_api.get_cell_line_disease(cellosaurus_accession)
-
-        if ncit_accession is not None:
-            # Step 3: Transform the disease ID (NCIt) to UMLS CUI using the UMLS API
-            umls_cui, disease_name = self.umls_api.ncit_to_umls_cui(ncit_accession)
-            if umls_cui is not None:
-                # Step 4: Load the disease into the DISNET database
-                disease = Disease(umls_cui=umls_cui, name=disease_name)
-
-        cell_line = CellLine(
-            cell_line_id=cellosaurus_accession,
-            source_id=self.cellosaurus_source_id,
-            name=cell_line_name,
-            tissue=tissue,
-            disease_id=umls_cui,
+                status INT DEFAULT 0, 
+                error_msg TEXT
+            )
+            """
         )
-        result = CellLineFetchResult(cell_line=cell_line, disease=disease if umls_cui is not None else None)
-        self.cache[cell_line_name] = replace(result, cached=True)
-        return result
+        self.sqlite_conn.commit()
 
-    def persist(self, fetch_result: CellLineFetchResult):
-        if fetch_result.cached:
-            return
+    def stage_0(self, cell_line_names: List[str]):
+        """
+        Stage 0: Load raw cell line names into staging table.
+        """
+        self._init_staging_table()
+        with self.sqlite_conn:
+            for name in cell_line_names:
+                self.sqlite_conn.execute(
+                    "INSERT OR IGNORE INTO staging_cell_lines (original_name) VALUES (?)",
+                    (name,),
+                )
 
-        if fetch_result.disease:
-            self.cell_line_repo.add_disease(fetch_result.disease)
-        self.cell_line_repo.add_cell_line(fetch_result.cell_line)
+    def stage_1(self):
+        """
+        Stage 1:
+        - Path A (COSMIC): Gets ID + Tissue + NCIt -> Jumps to Status 2.
+        - Path B (Fallback): Gets ID + Tissue -> Goes to Status 1.
+        """
+        print("Stage 1: Resolving COSMIC IDs and translating to Cellosaurus IDs...")
+
+        while True:
+            # Fetch a batch of unresolved cell lines
+            rows = self.sqlite_conn.execute(
+                "SELECT original_name FROM staging_cell_lines WHERE status = 0 LIMIT ?",
+                (BATCH_SIZE,),
+            ).fetchall()
+
+            if not rows:
+                break
+
+            updates = []
+            for (name,) in rows:
+                try:
+                    # Step 1: Try to resolve COSMIC ID from local 'cell_lines' table
+                    cursor = self.sqlite_conn.execute(
+                        "SELECT cosmic_id FROM cell_lines WHERE name = ?", (name,)
+                    )
+                    result = cursor.fetchone()
+
+                    cosmic_id = result[0] if result else None
+                    cellosaurus_id = None
+                    tissue = None
+
+                    # Path A: COSMIC Lookup.
+                    if cosmic_id:
+                        cellosaurus_id, tissue, ncit = self.cellosaurus_api.get_cell_line_from_cosmic_id(
+                            cosmic_id
+                        )
+
+                    if cellosaurus_id:
+                        # Success! Jump to status 2 since we got the ncit.
+                        updates.append((cosmic_id, cellosaurus_id, tissue, ncit, 2, None, name))
+
+                    else:
+                        # Path B: Fallback to DrugCombDB
+                        cellosaurus_id, tissue = self.dcdb_api.get_cell_line_info(name)
+                        if cellosaurus_id:
+                            updates.append((cosmic_id, cellosaurus_id, tissue, None, 1, None, name))
+
+                        else:
+                            # Could not resolve Cellosaurus ID, mark as failed with reason
+                            updates.append((cosmic_id, None, None, None, -1, "Not found", name))
+
+                except Exception as e:
+                    updates.append((None, None, None, None, -1, str(e), name))
+
+            # Batch update the staging table
+            with self.sqlite_conn:
+                self.sqlite_conn.executemany(
+                    """
+                    UPDATE staging_cell_lines 
+                    SET cosmic_id=?, cellosaurus_accession=?, tissue=?, ncit_accession=?, status=?, error_msg=? 
+                    WHERE original_name=?
+                    """,
+                    updates,
+                )
+
+    def stage_2(self):
+        """
+        Stage 2: For rows with resolved Cellosaurus ID, query Cellosaurus API to get associated disease NCIT ID.
+        """
+        print("Stage 2: Getting disease associations from Cellosaurus...")
+
+        while True:
+            rows = self.sqlite_conn.execute(
+                "SELECT original_name, cellosaurus_accession FROM staging_cell_lines WHERE status=1 LIMIT ?",
+                (BATCH_SIZE,)
+            ).fetchall()
+
+            if not rows:
+                break
+
+            updates = []
+            for name, accession in rows:
+                try:
+                    ncit = self.cellosaurus_api.get_cell_line_disease(accession)
+                    updates.append((ncit, 2, None, name))
+                except Exception as e:
+                    updates.append((None, -1, str(e), name))
+
+            with self.sqlite_conn:
+                self.sqlite_conn.executemany(
+                    "UPDATE staging_cell_lines SET ncit_accession=?, status=?, error_msg=? WHERE original_name=?",
+                    updates
+                )
+
+    def stage_3(self):
+        """Stage 3: Map NCIt to UMLS CUI."""
+        print("Stage 3: Mapping to UMLS CUI...")
+        while True:
+            rows = self.sqlite_conn.execute(
+                "SELECT original_name, ncit_accession FROM staging_cell_lines WHERE status=2 LIMIT ?",
+                (BATCH_SIZE,)
+            ).fetchall()
+
+            if not rows:
+                break
+
+            updates = []
+            for name, ncit in rows:
+                try:
+                    if ncit:
+                        cui, disease_name = self.umls_api.ncit_to_umls_cui(ncit)
+                        updates.append((cui, disease_name, 3, None, name))
+                    else:
+                        # If no NCIt was found, we can still mark it as processed but with null CUI and disease name
+                        updates.append((None, None, 3, None, name))
+                except Exception as e:
+                    updates.append((None, None, -1, str(e), name))
+
+            with self.sqlite_conn:
+                self.sqlite_conn.executemany(
+                    "UPDATE staging_cell_lines SET umls_cui=?, disease_name=?, status=?, error_msg=? WHERE original_name=?",
+                    updates
+                )
+
+    def persist(self):
+        """Stage 4: Save fully processed rows to the Repo."""
+        print("Persisting to Production DB...")
+        cursor = self.sqlite_conn.execute("""
+            SELECT original_name, cellosaurus_accession, tissue, umls_cui, disease_name 
+            FROM staging_cell_lines 
+            WHERE status=3
+        """)
+
+        while True:
+            batch = cursor.fetchmany(BATCH_SIZE)
+            if not batch:
+                break
+
+            for row in batch:
+                (name, accession, tissue, cui, disease_name) = row
+
+                cell_line = CellLine(
+                    cell_line_id=accession,
+                    source_id=self.cellosaurus_source_id,
+                    name=name,
+                    tissue=tissue,
+                    disease_id=cui,
+                )
+
+                disease = None
+                if cui:
+                    disease = Disease(umls_cui=cui, name=disease_name)
+
+                try:
+                    if disease:
+                        self.cell_line_repo.add_disease(disease)
+                    self.cell_line_repo.add_cell_line(cell_line)
+                except Exception as e:
+                    print(f"Error persisting {name}: {e}")
 
 
 class CellLineNotResolvableError(Exception):
