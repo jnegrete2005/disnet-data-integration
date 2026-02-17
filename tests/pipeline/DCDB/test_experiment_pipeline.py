@@ -60,7 +60,7 @@ class TestExperimentPipeline(unittest.TestCase):
         # Act
         result_id = self.pipeline.run(
             drug_ids=self.dummy_drug_ids,
-            classification=classification_input,
+            class_name=classification_input,
             cell_line_id=self.dummy_cell_line,
             scores=self.dummy_scores,
             drug_names=self.dummy_drug_names,
@@ -101,7 +101,7 @@ class TestExperimentPipeline(unittest.TestCase):
         # Act
         self.pipeline.run(
             drug_ids=self.dummy_drug_ids,
-            classification=classification_input,
+            class_name=classification_input,
             cell_line_id=self.dummy_cell_line,
             scores=self.dummy_scores,
             drug_names=self.dummy_drug_names,
@@ -123,7 +123,7 @@ class TestExperimentPipeline(unittest.TestCase):
         with self.assertLogs(level="WARNING") as cm:
             self.pipeline.run(
                 drug_ids=["D1", "D2"],
-                classification=0,  # 0 => Additive
+                class_name=0,  # 0 => Additive
                 cell_line_id="C1",
                 scores=[],
                 drug_names=drug_names_test,

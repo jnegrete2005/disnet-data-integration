@@ -32,7 +32,7 @@ class ExperimentPipeline(IntegrationPipeline):
     def run(
         self,
         drug_ids: list[str],
-        classification: int,
+        class_name: str,
         cell_line_id: str,
         scores: list[Score],
         drug_names: list[str],
@@ -43,8 +43,8 @@ class ExperimentPipeline(IntegrationPipeline):
 
         :param drug_ids: List of drug IDs forming the combination.
         :type drug_ids: list[str]
-        :param classification: Classification of the experiment.
-        :type classification: int
+        :param class_name: Classification name of the experiment.
+        :type class_name: str
         :param scores: List of Score objects associated with the experiment.
         :type scores: list[Score]
         :param cell_line_id: ID of the cell line used in the experiment.
@@ -62,13 +62,6 @@ class ExperimentPipeline(IntegrationPipeline):
         drug_comb_id = self.drug_comb_repo.get_or_create_combination(drug_ids)
 
         # Step 2: Get or create the experiment classification entry
-        class_name = self.__determine_classification_name(classification)
-        if classification == 0:
-            logger.warning(
-                "Experiment with drug combination ID %d and drugs %s is classified as Additive.",
-                combination_id,
-                ", ".join(drug_names),
-            )
         classification_id = self.experiment_repo.get_or_create_exp_class(class_name)
 
         # Step 3: Get or create the experiment source entry

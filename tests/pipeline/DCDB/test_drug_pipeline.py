@@ -18,11 +18,10 @@ class TestStagedDrugPipeline(unittest.TestCase):
         self.conn = sqlite3.connect(":memory:")
         self.conn.execute("""
             CREATE TABLE drugs (
-                id INTEGER PRIMARY KEY,
-                drug_id TEXT,
                 drugName TEXT,
-                chemical_structure TEXT,
-                drugNameOfficial TEXT
+                cIds TEXT,
+                drugNameOfficial TEXT,
+                smilesString TEXT
             )
         """)
         self.conn.commit()
@@ -68,7 +67,7 @@ class TestStagedDrugPipeline(unittest.TestCase):
         Scenario: Aspirin -> PubChem(123) -> ChEMBL(CHEMBL25) -> Success -> Persist
         """
         drug_name = "Aspirin"
-        pubchem_id = "12345"
+        pubchem_id = "CIDs0012345"
         chembl_id = "CHEMBL25"
         inchi = "INCHI_KEY_ABC"
 
@@ -102,7 +101,7 @@ class TestStagedDrugPipeline(unittest.TestCase):
         self.pipeline.stage_1()
         row = self._get_row(drug_name)
         self.assertEqual(row['status'], 1)
-        self.assertEqual(row['pubchem_id'], pubchem_id)
+        self.assertEqual(row['pubchem_id'], pubchem_id)  # CIDs0012345 -> 12345
 
         # 3. Stage 2: UniChem
         self.pipeline.stage_2()

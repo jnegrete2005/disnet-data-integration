@@ -1,6 +1,8 @@
 import sqlite3
+import logging
 
 from chembl_webresource_client.new_client import new_client
+from pathlib import Path
 
 from apis.dcdb import DrugCombDBAPI
 from apis.unichem import UniChemAPI
@@ -8,6 +10,9 @@ from domain.models import Drug
 from infraestructure.database import DisnetManager
 from repo.drug_repo import DrugRepo
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.propagate = False
 
 BATCH_SIZE = 1000
 
@@ -46,6 +51,21 @@ class DrugPipeline:
 
         self.local = from_local
 
+        log_path = Path("logs/drug_pipeline.log")
+        if not log_path.parent.exists():
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(log_path)
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+    def run(self, drugs: list[str]):
+        self.stage_0(drugs)
+        self.stage_1()
+        self.stage_2()
+        self.stage_3()
+        self.persist()
+
     def _init_staging_table(self):
         cursor = self.sqlite_conn.cursor()
         cursor.execute(
@@ -79,6 +99,7 @@ class DrugPipeline:
         Stage 0: Extract the drug's data from the source and store it in the staging table.
         """
         self._init_staging_table()
+        logger.info("Stage 0: Staging %d unique drugs from combinations into the staging table...", len(drugs))
         with self.sqlite_conn:
             for drug in drugs:
                 self.sqlite_conn.execute(
@@ -94,7 +115,10 @@ class DrugPipeline:
         If successful, update the staging table with the PubChem ID and set status to 1.
         If not found, set status to -1 and error_code to NOT_FOUND_IN_DCDB_CODE.
         """
-        print("Stage 1: Fetching PubChem IDs from DrugCombDB...")
+        logger.info("Stage 1: Fetching PubChem IDs from DrugCombDB...")
+
+        success = 0
+        skipped = 0
 
         while True:
             # 1. Fetch a Batch of 'pending' work
@@ -113,13 +137,17 @@ class DrugPipeline:
                     if pubchem_drug and pubchem_drug.drug_id:
                         # Status 1 -> Raw drug fetched successfully
                         updates.append((pubchem_drug.drug_id, pubchem_drug.chemical_structure, 1, None, drug_name))
+                        success += 1
 
                     else:
                         # Status -1 -> Not found in DCDB
+                        logger.warning("Drug '%s' not found in DrugCombDB", drug_name)
                         updates.append((None, None, -1, NOT_FOUND_IN_DCDB_CODE, drug_name))
+                        skipped += 1
                 except Exception as e:
-                    print(f"Error processing drug {drug_name}: {e}")
+                    logger.error("Error processing drug %s: %s", drug_name, e)
                     updates.append((None, None, -1, NOT_FOUND_IN_DCDB_CODE, drug_name))
+                    skipped += 1
 
             # 2. Update the staging table with the results of the batch
             with self.sqlite_conn:
@@ -127,6 +155,7 @@ class DrugPipeline:
                     "UPDATE staging_drugs SET pubchem_id=?, chemical_structure=?, status=?, error_code=? WHERE drug_name=?",
                     updates
                 )
+        logger.info("Stage 1: Completed. Success: %d, Skipped: %d", success, skipped)
 
     def stage_2(self):
         """
@@ -134,7 +163,10 @@ class DrugPipeline:
         If successful, update the staging table with the CHEMBL ID and set status to 2.
         If not found, set status to -1 and error_code to NOT_FOUND_IN_UNICHEM_CODE.
         """
-        print("Stage 2: Mapping PubChem IDs to CHEMBL IDs using UniChem...")
+        logger.info("Stage 2: Mapping PubChem IDs to CHEMBL IDs using UniChem...")
+
+        success = 0
+        skipped = 0
 
         while True:
             # 1. Fetch a Batch of rows where status=1 (raw drug fetched successfully)
@@ -149,16 +181,23 @@ class DrugPipeline:
             updates = []
             for drug_name, pubchem_id in rows:
                 try:
+
                     chembl_id, inchi_key = self.unichem_api.get_compound_mappings(pubchem_id)
                     if chembl_id:
                         # Status 2 -> CHEMBL ID mapped successfully
                         updates.append((chembl_id, inchi_key, 2, None, drug_name))
+                        success += 1
                     else:
                         # Status -1 -> Not found in UniChem
+                        logger.warning(
+                            "No CHEMBL ID mapping found in UniChem for PubChem ID '%s' (drug '%s')", pubchem_id, drug_name)
                         updates.append((None, None, -1, NOT_FOUND_IN_UNICHEM_CODE, drug_name))
-                except Exception:
+                        skipped += 1
+                except Exception as e:
+                    logger.error("Error mapping PubChem ID '%s' for drug '%s': %s", pubchem_id, drug_name, e)
                     # Status -1 -> Not found in UniChem (or error during API call)
                     updates.append((None, None, -1, NOT_FOUND_IN_UNICHEM_CODE, drug_name))
+                    skipped += 1
 
             # 2. Update the staging table with the results of the batch
             with self.sqlite_conn:
@@ -166,6 +205,7 @@ class DrugPipeline:
                     "UPDATE staging_drugs SET chembl_id=?, inchi_key=?, status=?, error_code=? WHERE drug_name=?",
                     updates
                 )
+        logger.info("Stage 2: Completed. Success: %d, Skipped: %d", success, skipped)
 
     def stage_3(self):
         """
@@ -173,7 +213,10 @@ class DrugPipeline:
         If successful, update the staging table with the drug info and set status to 3.
         If not found, set status to -1 and error_code to NOT_FOUND_IN_CHEMBL_CODE.
         """
-        print("Stage 3: Fetching drug info from ChEMBL...")
+        logger.info("Stage 3: Fetching drug info from ChEMBL...")
+
+        success = 0
+        skipped = 0
 
         while True:
             # 1. Fetch a Batch rows where status=2 (CHEMBL ID mapped successfully)
@@ -193,12 +236,15 @@ class DrugPipeline:
                         # Status 3 -> CHEMBL drug info fetched successfully. Extraction Stage done.
                         updates.append((chembl_drug.molecular_type, chembl_drug.chemical_structure,
                                        chembl_drug.inchi_key, 3, None, chembl_id))
+                        success += 1
                     else:
                         # Status -1 -> Not found in CHEMBL
                         updates.append((None, None, None, -1, NOT_FOUND_IN_CHEMBL_CODE, chembl_id))
+                        skipped += 1
                 except Exception as e:
                     # Status -1 -> Not found in CHEMBL (or error during API call)
                     updates.append((None, None, None, -1, NOT_FOUND_IN_CHEMBL_CODE, chembl_id))
+                    skipped += 1
 
             # 2. Update the staging table with the results of the batch
             with self.sqlite_conn:
@@ -207,11 +253,13 @@ class DrugPipeline:
                     updates
                 )
 
+        logger.info("Stage 3: Completed. Success: %d, Skipped: %d", success, skipped)
+
     def persist(self):
         """
         After all stages are completed, persist the successfully processed drugs into the DISNET database using the DrugRepo.
         """
-        print("Persisting successfully processed drugs into DISNET database...")
+        logger.info("Persisting successfully processed drugs into DISNET database...")
         cursor = self.sqlite_conn.execute(
             """
             SELECT drug_name, chembl_id, molecular_type, chemical_structure, inchi_key 
@@ -219,6 +267,9 @@ class DrugPipeline:
             WHERE status=3
             """
         )
+        n_to_process = self.sqlite_conn.execute("SELECT COUNT(*) FROM staging_drugs WHERE status=3").fetchone()[0]
+        logger.info("Total drugs to persist: %d", n_to_process)
+        counter = 0
 
         while True:
             batch = cursor.fetchmany(BATCH_SIZE)
@@ -237,18 +288,23 @@ class DrugPipeline:
                 )
 
                 self.drug_repo.add_chembl_drug(drug)
+                counter += 1
+
+        logger.info("Persistence completed. Total drugs persisted: %d of %d", counter, n_to_process)
 
     def __get_pubchem_id(self, drug_name: str) -> Drug | None:
-        query = "SELECT * FROM drugs WHERE drugName = ? OR drugNameOfficial = ?"
+        query = "SELECT cIds, drugNameOfficial, smilesString FROM drugs WHERE drugName = ? OR drugNameOfficial = ?"
         params = (drug_name, drug_name)
         cursor = self.sqlite_conn.cursor()
         cursor.execute(query, params)
         result = cursor.fetchone()
         if result:
+            name = result[1] if result[1] else drug_name
+            pubchem_id = str(int(result[0][4:]))  # CIDs000xxx -> xxx
             return Drug(
-                drug_id=result[1],
-                drug_name=result[2],
-                chemical_structure=result[3],
+                drug_id=pubchem_id,
+                drug_name=name,
+                chemical_structure=result[2],
                 source_id=self.pubchem_source_id,
             )
 

@@ -30,7 +30,7 @@ class CellosaurusAPI(BaseAPI):
     def get_cell_line_from_cosmic_id(self, cosmic_id: str) -> tuple[str | None, str | None, str | None]:
         endpoint = "search/cell-line"
         params = {
-            "q": f"dr:(Cosmic:{cosmic_id} OR Cosmic-CLP:{cosmic_id})",
+            "q": f"dr:(\"Cosmic:{cosmic_id}\" OR \"Cosmic-CLP:{cosmic_id}\")",
             "format": "json",
             "fields": "ac,din,derived-from-site"
         }

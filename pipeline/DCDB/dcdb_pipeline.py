@@ -180,7 +180,7 @@ class DrugCombDBPipeline(IntegrationPipeline):
         # Create the drug combination entry
         exp_id = self.experiment_pipeline.run(
             drug_ids=[drug.drug_id for drug in processed_drugs],
-            classification=classification,
+            class_name=classification,
             cell_line_id=cell_line.cell_line_id,
             scores=scores,
             drug_names=drugs,

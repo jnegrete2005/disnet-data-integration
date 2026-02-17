@@ -23,8 +23,6 @@ class ScorePipeline(IntegrationPipeline):
 
         score_mappings = {"HSA": hsa, "Bliss": bliss, "Loewe": loewe, "ZIP": zip}
 
-        classification = 0
-        eps = 1e-5
         for score_name, score_value in score_mappings.items():
             if score_value is None:
                 continue
@@ -33,10 +31,4 @@ class ScorePipeline(IntegrationPipeline):
                 Score(score_id=score_id, score_name=score_name, score_value=score_value)
             )
 
-            if score_value < -eps:
-                classification -= 1
-            elif score_value > eps:
-                classification += 1
-
-        classification = (classification > 0) - (classification < 0)
-        return scores, classification
+        return scores
