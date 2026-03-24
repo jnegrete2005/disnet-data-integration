@@ -45,6 +45,30 @@ class DrugRepo(GenericRepo):
             return False
         return True
 
+    @sql_op
+    def get_all_drugs(self, cursor) -> list[Drug]:
+        """
+        Retrieves all drugs from Disnet
+        """
+        select_query = """
+            SELECT drug_id, source_id, drug_name, molecular_type, chemical_structure, inchi_key
+            FROM drug;
+        """
+        cursor.execute(select_query)
+        rows = cursor.fetchall()
+        drugs = []
+        for row in rows:
+            drug = Drug(
+                drug_id=row[0],
+                source_id=row[1],
+                drug_name=row[2],
+                molecular_type=row[3],
+                chemical_structure=row[4],
+                inchi_key=row[5],
+            )
+            drugs.append(drug)
+            return drugs
+
     @sql_insert_op
     def add_raw_drug(self, cursor, drug: Drug) -> bool:
         """
