@@ -55,7 +55,9 @@ class DrugCombDBOrchestrator:
             from_local=from_local,
         )
         self.score_pipeline = score_pipeline or ScorePipeline(db=disnet_db)
-        self.experiment_pipeline = experiment_pipeline or ExperimentPipeline(db=disnet_db)
+        self.experiment_pipeline = experiment_pipeline or ExperimentPipeline(
+            db=disnet_db
+        )
 
     def run(self):
         logger.info("--- Starting ETL Orchestration ---")
@@ -77,7 +79,9 @@ class DrugCombDBOrchestrator:
 
     def _fetch_combinations(self):
         if not self.from_local:
-            raise NotImplementedError("DrugCombDB API is offline. Local processing is required.")
+            raise NotImplementedError(
+                "DrugCombDB API is offline. Local processing is required."
+            )
 
         query = """
         SELECT
@@ -98,7 +102,9 @@ class DrugCombDBOrchestrator:
         results = [dict(zip(columns, row)) for row in cursor.fetchall()]
         return results
 
-    def _extract_unique_entities(self, combinations: list[dict]) -> tuple[set[str], set[str]]:
+    def _extract_unique_entities(
+        self, combinations: list[dict]
+    ) -> tuple[set[str], set[str]]:
         unique_drugs = set()
         unique_cell_lines = set()
 
@@ -110,15 +116,22 @@ class DrugCombDBOrchestrator:
         return unique_drugs, unique_cell_lines
 
     def _run_drug_pipeline(self, unique_drugs: list[str]):
-        logger.info("Processing %d unique drugs through DrugPipeline", len(unique_drugs))
+        logger.info(
+            "Processing %d unique drugs through DrugPipeline", len(unique_drugs)
+        )
         self.drug_pipeline.run(unique_drugs)
 
     def _run_cell_line_pipeline(self, unique_cell_lines: list[str]):
-        logger.info("Processing %d unique cell lines through CellLinePipeline", len(unique_cell_lines))
+        logger.info(
+            "Processing %d unique cell lines through CellLinePipeline",
+            len(unique_cell_lines),
+        )
         self.cell_line_pipeline.run(unique_cell_lines)
 
     def _persist_experiments(self, combinations: list[dict]):
-        logger.info("Persisting experiments for %d drug combinations", len(combinations))
+        logger.info(
+            "Persisting experiments for %d drug combinations", len(combinations)
+        )
 
         drug_map = self._load_drug_map()
         cell_map = self._load_cell_map()
@@ -161,20 +174,31 @@ class DrugCombDBOrchestrator:
                 success += 1
                 self._set_processing_status(comb["combination_id"], "processed")
             except Exception as e:
-                logger.error("Failed to persist experiment for combination ID %d: %s", comb["combination_id"], str(e))
+                logger.error(
+                    "Failed to persist experiment for combination ID %d: %s",
+                    comb["combination_id"],
+                    str(e),
+                )
                 self._set_processing_status(comb["combination_id"], "error")
 
-        logger.info("Experiment persistence completed: %d successful, %d skipped", success, skipped)
+        logger.info(
+            "Experiment persistence completed: %d successful, %d skipped",
+            success,
+            skipped,
+        )
 
     def _load_drug_map(self) -> dict[str, str]:
-        """ Reads staging drugs table to create a name to chembl_id mapping. """
-        cursor = self.conn.execute("SELECT drug_name, chembl_id FROM staging_drugs WHERE status=3;")
+        """Reads staging drugs table to create a name to chembl_id mapping."""
+        cursor = self.conn.execute(
+            "SELECT drug_name, chembl_id FROM staging_drugs WHERE status=3;"
+        )
         return {row[0]: row[1] for row in cursor.fetchall()}
 
     def _load_cell_map(self) -> dict[str, str]:
-        """ Reads staging cell lines table to create a name to cell_line_id mapping. """
+        """Reads staging cell lines table to create a name to cell_line_id mapping."""
         cursor = self.conn.execute(
-            "SELECT original_name, cellosaurus_accession FROM staging_cell_lines WHERE status=3;")
+            "SELECT original_name, cellosaurus_accession FROM staging_cell_lines WHERE status=3;"
+        )
         return {row[0]: row[1] for row in cursor.fetchall()}
 
     def _setup_file_logger(self):
@@ -187,6 +211,7 @@ class DrugCombDBOrchestrator:
 
     def _set_processing_status(self, combination_id: int, status: str):
         self.conn.execute(
-            "UPDATE drug_combinations SET status = ? WHERE id = ?", (status, combination_id)
+            "UPDATE drug_combinations SET status = ? WHERE id = ?",
+            (status, combination_id),
         )
         self.conn.commit()

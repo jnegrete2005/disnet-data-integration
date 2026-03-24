@@ -1,12 +1,8 @@
-import logging
-
 from domain.models import Experiment, Score
 from infraestructure.database import DisnetManager
 from pipeline.base_pipeline import IntegrationPipeline
 from repo.drugcomb_repo import DrugCombRepo
 from repo.experiment_repo import ExperimentRepo
-
-logger = logging.getLogger(__name__)
 
 
 class ExperimentPipeline(IntegrationPipeline):
@@ -35,8 +31,6 @@ class ExperimentPipeline(IntegrationPipeline):
         class_name: str,
         cell_line_id: str,
         scores: list[Score],
-        drug_names: list[str],
-        combination_id: int,
     ) -> int:
         """
         Given a list of drug IDs and a classification, get or create the experiment entry in the DISNET database.
@@ -78,20 +72,3 @@ class ExperimentPipeline(IntegrationPipeline):
         experiment_id = self.experiment_repo.get_or_create_experiment(experiment)
 
         return experiment_id
-
-    def __determine_classification_name(self, classification: int) -> str:
-        """
-        Determine the classification name based on the classification integer.
-
-        :param classification: Classification integer.
-        :type classification: int
-
-        :return: Classification name.
-        :rtype: str
-        """
-        if classification > 0:
-            return "Synergistic"
-        elif classification < 0:
-            return "Antagonistic"
-        else:
-            return "Additive"

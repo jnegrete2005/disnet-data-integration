@@ -15,8 +15,9 @@ class TestCellLinePipeline(unittest.TestCase):
         # Create the local 'cell_lines' table required by Stage 1 (Local Lookup)
         self.conn.execute("""
             CREATE TABLE cell_lines (
-                name TEXT PRIMARY KEY,
-                cosmic_id TEXT
+                cellName TEXT PRIMARY KEY,
+                cosmicId TEXT
+                tag TEXT
             )
         """)
         self.conn.commit()

@@ -72,7 +72,7 @@ class TestExperimentPipeline(unittest.TestCase):
         self.mock_drug_comb_repo.get_or_create_combination.assert_called_with(self.dummy_drug_ids)
 
         # 2. Verify Classification logic
-        self.mock_experiment_repo.get_or_create_exp_class.assert_called_with("Synergistic")
+        self.mock_experiment_repo.get_or_create_exp_class.assert_called_with(1)
 
         # 3. Verify Source logic (Hardcoded to DrugCombDB in your code)
         self.mock_experiment_repo.get_or_create_exp_source.assert_called_with("DrugCombDB")
@@ -109,39 +109,7 @@ class TestExperimentPipeline(unittest.TestCase):
         )
 
         # Assert
-        self.mock_experiment_repo.get_or_create_exp_class.assert_called_with("Antagonistic")
-
-    def test_run_additive_flow_logs_warning(self):
-        """
-        Verifica que si la clasificación es 0 (Additive):
-        1. Se etiqueta como 'Additive'.
-        2. Se genera un log WARNING con la información correcta.
-        """
-        drug_names_test = ["Aspirin", "Ibuprofen"]
-        combination_id_test = 12345
-
-        with self.assertLogs(level="WARNING") as cm:
-            self.pipeline.run(
-                drug_ids=["D1", "D2"],
-                class_name=0,  # 0 => Additive
-                cell_line_id="C1",
-                scores=[],
-                drug_names=drug_names_test,
-                combination_id=combination_id_test,
-            )
-
-        # 1. Verificar clasificación
-        self.mock_experiment_repo.get_or_create_exp_class.assert_called_once_with("Additive")
-
-        # 2. Verificar contenido del Log
-        # cm.output es una lista de strings con los mensajes loggeados
-        log_messages = cm.output
-        self.assertTrue(len(log_messages) > 0, "No se generaron logs de advertencia")
-
-        last_log = log_messages[-1]
-        self.assertIn(str(combination_id_test), last_log)
-        self.assertIn("Aspirin, Ibuprofen", last_log)
-        self.assertIn("classified as Additive", last_log)
+        self.mock_experiment_repo.get_or_create_exp_class.assert_called_with(-1)
 
     def test_dependency_injection_default(self):
         """
