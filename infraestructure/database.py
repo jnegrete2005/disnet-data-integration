@@ -16,12 +16,18 @@ class DisnetManager:
         self._conn = None
         self.__test = test
         database = "drugslayer_test" if self.__test else "drugslayer"
+
+        host = os.getenv("DB_HOST", "localhost")
+        port = os.getenv("DB_PORT", "3306")
+        user = os.getenv("DB_USER")
+        password = os.getenv("DB_PASSWORD")
+
         self._db_config = {
-            "host": "127.0.0.1",
-            "port": 3306,
+            "host": host,
+            "port": port,
+            "user": user,
+            "password": password,
             "database": database,
-            "user": os.getenv("DB_USER"),
-            "password": os.getenv("DB_PASSWORD"),
         }
 
     def _create_connection(self):
