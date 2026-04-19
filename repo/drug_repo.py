@@ -67,7 +67,7 @@ class DrugRepo(GenericRepo):
                 inchi_key=row[5],
             )
             drugs.append(drug)
-            return drugs
+        return drugs
 
     @sql_insert_op
     def add_raw_drug(self, cursor, drug: Drug) -> bool:
@@ -90,7 +90,7 @@ class DrugRepo(GenericRepo):
             ),
         )
 
-        return drug.drug_id
+        return True
 
     @sql_insert_op
     def add_chembl_drug(self, cursor, drug: Drug) -> bool:

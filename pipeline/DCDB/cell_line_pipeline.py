@@ -1,9 +1,8 @@
-import sqlite3
 import logging
-
+import sqlite3
 from pathlib import Path
-
 from typing import List
+
 from apis.cellosaurus import CellosaurusAPI
 from apis.dcdb import DrugCombDBAPI
 from apis.umls import UMLSAPI
@@ -69,7 +68,7 @@ class CellLinePipeline:
             """
             CREATE TABLE IF NOT EXISTS staging_cell_lines (
                 original_name TEXT PRIMARY KEY,
-                
+
                 -- STAGE 1: IDENTIFICATION (Local Table -> COSMIC -> CELLOSAURUS)
                 cosmic_id TEXT,
                 cellosaurus_accession TEXT,
@@ -125,20 +124,17 @@ class CellLinePipeline:
             for (name,) in rows:
                 try:
                     # Step 1: Try to resolve COSMIC ID from local 'cell_lines' table
-                    cursor = self.sqlite_conn.execute(
-                        "SELECT cosmicId FROM cell_lines WHERE cellName = ?", (name,)
-                    )
+                    cursor = self.sqlite_conn.execute("SELECT cosmicId FROM cell_lines WHERE cellName = ?", (name,))
                     result = cursor.fetchone()
 
                     cosmic_id = str(int(result[0])) if result else None
                     cellosaurus_id = None
                     tissue = None
+                    ncit = None
 
                     # Path A: COSMIC Lookup.
                     if cosmic_id:
-                        cellosaurus_id, tissue, ncit = self.cellosaurus_api.get_cell_line_from_cosmic_id(
-                            cosmic_id
-                        )
+                        cellosaurus_id, tissue, ncit = self.cellosaurus_api.get_cell_line_from_cosmic_id(cosmic_id)
 
                     if cellosaurus_id:
                         # Success! Jump to status 2 since we got the ncit.
@@ -149,7 +145,9 @@ class CellLinePipeline:
                         if self.local:
                             # If we're running locally, we won't have access to the DCDB API, so we can skip the fallback and just mark as not found.
                             logger.warning(
-                                "COSMIC ID not found for cell line '%s' and local mode is enabled, skipping DCDB fallback", name)
+                                "COSMIC ID not found for cell line '%s' and local mode is enabled, skipping DCDB fallback",
+                                name,
+                            )
                             updates.append((cosmic_id, None, None, None, -1, "Not found (local mode)", name))
                             skipped += 1
                             continue
@@ -192,7 +190,7 @@ class CellLinePipeline:
         while True:
             rows = self.sqlite_conn.execute(
                 "SELECT original_name, cellosaurus_accession FROM staging_cell_lines WHERE status=1 LIMIT ?",
-                (BATCH_SIZE,)
+                (BATCH_SIZE,),
             ).fetchall()
 
             if not rows:
@@ -212,7 +210,7 @@ class CellLinePipeline:
             with self.sqlite_conn:
                 self.sqlite_conn.executemany(
                     "UPDATE staging_cell_lines SET ncit_accession=?, status=?, error_msg=? WHERE original_name=?",
-                    updates
+                    updates,
                 )
 
         logger.info("Stage 2 batch completed: %d updated with NCIT, %d failed", success, skipped)
@@ -225,8 +223,7 @@ class CellLinePipeline:
         skipped = 0
         while True:
             rows = self.sqlite_conn.execute(
-                "SELECT original_name, ncit_accession FROM staging_cell_lines WHERE status=2 LIMIT ?",
-                (BATCH_SIZE,)
+                "SELECT original_name, ncit_accession FROM staging_cell_lines WHERE status=2 LIMIT ?", (BATCH_SIZE,)
             ).fetchall()
 
             if not rows:
@@ -251,7 +248,7 @@ class CellLinePipeline:
             with self.sqlite_conn:
                 self.sqlite_conn.executemany(
                     "UPDATE staging_cell_lines SET umls_cui=?, disease_name=?, status=?, error_msg=? WHERE original_name=?",
-                    updates
+                    updates,
                 )
 
         logger.info("Stage 3 batch completed: %d mapped to UMLS, %d skipped", success, skipped)

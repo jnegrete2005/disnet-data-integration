@@ -6,7 +6,7 @@ from pathlib import Path
 
 from apis.dcdb import DrugCombDBAPI
 from apis.unichem import UniChemAPI
-from domain.models import Drug
+from domain.models import Drug, ForeignMap
 from infraestructure.database import DisnetManager
 from repo.drug_repo import DrugRepo
 
@@ -127,9 +127,7 @@ class DrugPipeline:
         success_names = []
 
         disnet_drugs = self.drug_repo.get_all_drugs()
-        disnet_set_names = set(
-            map(lambda d: normalize_drug_name(d.drug_name), disnet_drugs)
-        )
+        disnet_set_names = set(map(lambda d: normalize_drug_name(d.drug_name), disnet_drugs))
 
         for drug_name in self.initial_drug_names:
             if normalize_drug_name(drug_name) in disnet_set_names:
@@ -139,9 +137,7 @@ class DrugPipeline:
                 continue
 
         with self.sqlite_conn:
-            self.sqlite_conn.executemany(
-                "UPDATE staging_drugs SET status=4 WHERE drug_name=?", success_names
-            )
+            self.sqlite_conn.executemany("UPDATE staging_drugs SET status=4 WHERE drug_name=?", success_names)
 
         logger.info(
             "Pre check completed. Drugs already in DISNET: %d of %d",
@@ -190,9 +186,7 @@ class DrugPipeline:
                     else:
                         # Status -1 -> Not found in DCDB
                         logger.warning("Drug '%s' not found in DrugCombDB", drug_name)
-                        updates.append(
-                            (None, None, -1, NOT_FOUND_IN_DCDB_CODE, drug_name)
-                        )
+                        updates.append((None, None, -1, NOT_FOUND_IN_DCDB_CODE, drug_name))
                         skipped += 1
                 except Exception as e:
                     logger.error("Error processing drug %s: %s", drug_name, e)
@@ -231,9 +225,7 @@ class DrugPipeline:
             updates = []
             for drug_name, pubchem_id in rows:
                 try:
-                    chembl_id, inchi_key = self.unichem_api.get_compound_mappings(
-                        pubchem_id
-                    )
+                    chembl_id, inchi_key = self.unichem_api.get_compound_mappings(pubchem_id)
                     if chembl_id:
                         # Status 2 -> CHEMBL ID mapped successfully
                         updates.append((chembl_id, inchi_key, 2, None, drug_name))
@@ -245,9 +237,7 @@ class DrugPipeline:
                             pubchem_id,
                             drug_name,
                         )
-                        updates.append(
-                            (None, None, -1, NOT_FOUND_IN_UNICHEM_CODE, drug_name)
-                        )
+                        updates.append((None, None, -1, NOT_FOUND_IN_UNICHEM_CODE, drug_name))
                         skipped += 1
                 except Exception as e:
                     logger.error(
@@ -257,9 +247,7 @@ class DrugPipeline:
                         e,
                     )
                     # Status -1 -> Not found in UniChem (or error during API call)
-                    updates.append(
-                        (None, None, -1, NOT_FOUND_IN_UNICHEM_CODE, drug_name)
-                    )
+                    updates.append((None, None, -1, NOT_FOUND_IN_UNICHEM_CODE, drug_name))
                     skipped += 1
 
             # 2. Update the staging table with the results of the batch
@@ -310,15 +298,11 @@ class DrugPipeline:
                         success += 1
                     else:
                         # Status -1 -> Not found in CHEMBL
-                        updates.append(
-                            (None, None, None, -1, NOT_FOUND_IN_CHEMBL_CODE, chembl_id)
-                        )
+                        updates.append((None, None, None, -1, NOT_FOUND_IN_CHEMBL_CODE, chembl_id))
                         skipped += 1
                 except Exception as e:
                     # Status -1 -> Not found in CHEMBL (or error during API call)
-                    updates.append(
-                        (None, None, None, -1, NOT_FOUND_IN_CHEMBL_CODE, chembl_id)
-                    )
+                    updates.append((None, None, None, -1, NOT_FOUND_IN_CHEMBL_CODE, chembl_id))
                     skipped += 1
 
             # 2. Update the staging table with the results of the batch
@@ -333,18 +317,62 @@ class DrugPipeline:
     def persist(self):
         """
         After all stages are completed, persist the successfully processed drugs into the DISNET database using the DrugRepo.
+        Also persist the drugs that didn't have a status of 3 into the RawDrug table with the information available
         """
-        logger.info("Persisting successfully processed drugs into DISNET database...")
+        counter_raw = self.__persist_raw_drugs()
+        counter_chembl = self.__persist_drugs()
+
+        logger.info(
+            "Persistence completed. CHEMBL drugs persisted: %d, Raw drugs persisted: %d.",
+            counter_chembl,
+            counter_raw,
+        )
+
+    def __persist_raw_drugs(self) -> int:
         cursor = self.sqlite_conn.execute(
             """
-            SELECT drug_name, chembl_id, molecular_type, chemical_structure, inchi_key 
+            SELECT drug_name, pubchem_id, chemical_structure
+            FROM staging_drugs
+            WHERE status IN (1, 2) -- drugs that have at least a PubChem ID but couldn't be fully processed
+            """
+        )
+        n_to_process = self.sqlite_conn.execute("SELECT COUNT(*) FROM staging_drugs WHERE status IN (1, 2)").fetchone()[
+            0
+        ]
+        logger.info("Total raw drugs to persist: %d", n_to_process)
+        counter = 0
+
+        while True:
+            batch = cursor.fetchmany(BATCH_SIZE)
+            if not batch:
+                break
+
+            for row in batch:
+                (name, cid, chemical_structure) = row
+                drug = Drug(
+                    drug_id=cid,  # pubchem_id
+                    drug_name=name,  # drug_name
+                    source_id=self.pubchem_source_id,
+                    molecular_type=None,  # molecular_type not available for raw drugs
+                    chemical_structure=chemical_structure,  # chemical_structure (if available)
+                    inchi_key=None,  # inchi_key not available for raw drugs
+                )
+
+                self.drug_repo.add_raw_drug(drug)
+                counter += 1
+
+        logger.info("Total raw drugs persisted: %d of %d", counter, n_to_process)
+        return counter
+
+    def __persist_drugs(self) -> int:
+        cursor = self.sqlite_conn.execute(
+            """
+            SELECT drug_name, pubchem_id, chembl_id, molecular_type, chemical_structure, inchi_key 
             FROM staging_drugs 
             WHERE status=3
             """
         )
-        n_to_process = self.sqlite_conn.execute(
-            "SELECT COUNT(*) FROM staging_drugs WHERE status=3"
-        ).fetchone()[0]
+        n_to_process = self.sqlite_conn.execute("SELECT COUNT(*) FROM staging_drugs WHERE status=3").fetchone()[0]
         logger.info("Total drugs to persist: %d", n_to_process)
         counter = 0
 
@@ -354,7 +382,7 @@ class DrugPipeline:
                 break
 
             for row in batch:
-                (name, cid, mol_type, cstructure, inchi_key) = row
+                (name, pub_id, cid, mol_type, cstructure, inchi_key) = row
                 drug = Drug(
                     drug_id=cid,  # chembl_id
                     drug_name=name,  # drug_name
@@ -364,14 +392,27 @@ class DrugPipeline:
                     inchi_key=inchi_key,  # inchi_key
                 )
 
+                raw_drug = Drug(
+                    drug_id=pub_id,  # pubchem_id
+                    drug_name=name,  # drug_name
+                    source_id=self.pubchem_source_id,
+                    molecular_type=mol_type,
+                    chemical_structure=cstructure,
+                    inchi_key=inchi_key,
+                )
+
+                map = ForeignMap(
+                    foreign_id=pub_id,
+                    foreign_source_id=self.pubchem_source_id,
+                    chembl_id=cid,
+                )
+
                 self.drug_repo.add_chembl_drug(drug)
+                self.drug_repo.add_raw_drug(raw_drug)
+                self.drug_repo.map_foreign_to_chembl()
                 counter += 1
 
-        logger.info(
-            "Persistence completed. Total drugs persisted: %d of %d",
-            counter,
-            n_to_process,
-        )
+        return counter
 
     def __get_pubchem_id(self, drug_name: str) -> Drug | None:
         query = "SELECT cIds, drugNameOfficial, smilesString FROM drugs WHERE drugName = ? OR drugNameOfficial = ?"
